@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { ImagePlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -92,6 +93,8 @@ export default function CriarWizard() {
     title: string;
     thumbnail: string;
   } | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -288,18 +291,26 @@ export default function CriarWizard() {
 
   async function uploadPhoto(file: File) {
     if (!draft) return;
-    const fd = new FormData();
-    fd.set("file", file);
-    const res = await fetch(`/api/drafts/${draft.id}/photos`, {
-      method: "POST",
-      body: fd,
-    });
-    const j = await res.json();
-    if (!res.ok) {
-      setError(j.error ?? "Falha no upload");
-      return;
+    setUploadingPhoto(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.set("file", file);
+      const res = await fetch(`/api/drafts/${draft.id}/photos`, {
+        method: "POST",
+        body: fd,
+      });
+      const j = await res.json();
+      if (!res.ok) {
+        setError(j.error ?? "Falha no upload");
+        return;
+      }
+      setPhotos((p) => [...p, j.photo]);
+    } catch {
+      setError("Falha ao enviar a foto. Tente de novo.");
+    } finally {
+      setUploadingPhoto(false);
     }
-    setPhotos((p) => [...p, j.photo]);
   }
 
   async function removePhoto(photoId: string) {
@@ -482,27 +493,72 @@ export default function CriarWizard() {
             <h1 className="font-heading text-2xl font-semibold text-wine-deep">
               Fotos (1 a 3)
             </h1>
-            <Input
+            <p className="text-sm text-muted-foreground">
+              Envie de 1 a 3 fotos em JPG, PNG ou WebP.
+            </p>
+            <input
+              ref={photoInputRef}
               type="file"
               accept="image/jpeg,image/png,image/webp"
-              disabled={photos.length >= 3}
+              className="sr-only"
+              disabled={photos.length >= 3 || uploadingPhoto}
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) void uploadPhoto(f);
                 e.target.value = "";
               }}
             />
+            <button
+              type="button"
+              disabled={photos.length >= 3 || uploadingPhoto}
+              onClick={() => photoInputRef.current?.click()}
+              className={cn(
+                "flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors",
+                photos.length >= 3 || uploadingPhoto
+                  ? "cursor-not-allowed border-wine/15 bg-cream-deep/40 text-muted-foreground"
+                  : "border-wine/45 bg-wine/5 text-wine-deep hover:border-wine hover:bg-wine/10",
+              )}
+            >
+              {uploadingPhoto ? (
+                <>
+                  <Loader2
+                    className="size-8 animate-spin text-wine"
+                    aria-hidden
+                  />
+                  <span className="text-sm font-medium text-wine-deep">
+                    Enviando foto…
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="flex size-12 items-center justify-center rounded-full bg-wine text-cream shadow-sm">
+                    <ImagePlus className="size-6" aria-hidden />
+                  </span>
+                  <span className="text-base font-semibold">
+                    {photos.length >= 3
+                      ? "Limite de 3 fotos atingido"
+                      : "Escolher foto"}
+                  </span>
+                  {photos.length < 3 ? (
+                    <span className="text-sm text-muted-foreground">
+                      Toque aqui para selecionar uma imagem
+                    </span>
+                  ) : null}
+                </>
+              )}
+            </button>
             <ul className="space-y-2">
-              {photos.map((p) => (
+              {photos.map((p, i) => (
                 <li
                   key={p.id}
                   className="flex items-center justify-between rounded-md bg-cream-deep/60 px-3 py-2 text-sm"
                 >
-                  <span className="truncate">{p.storage_path.split("/").pop()}</span>
+                  <span className="truncate">Foto {i + 1}</span>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
+                    disabled={uploadingPhoto}
                     onClick={() => void removePhoto(p.id)}
                   >
                     Remover
@@ -679,6 +735,7 @@ export default function CriarWizard() {
             <Button
               type="button"
               className="bg-wine text-cream hover:bg-wine-deep"
+              disabled={saving || uploadingPhoto}
               onClick={() => void next()}
             >
               Continuar
