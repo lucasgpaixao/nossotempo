@@ -6,28 +6,16 @@ import { RelationshipCounter } from "@/components/couple-page/RelationshipCounte
 
 const DEMO_PHOTOS = [
   {
-    src:
-      "data:image/svg+xml," +
-      encodeURIComponent(
-        `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 800 1000"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#6b1e36"/><stop offset="1" stop-color="#ebe0d2"/></linearGradient></defs><rect width="800" height="1000" fill="url(#g)"/><text x="400" y="520" text-anchor="middle" fill="#f7f0e8" font-family="Georgia, serif" font-size="42">Momento 1</text></svg>`,
-      ),
-    alt: "Demo foto 1",
+    src: "/landing/demo-1.png",
+    alt: "Casal abraçado em uma ponte ao entardecer",
   },
   {
-    src:
-      "data:image/svg+xml," +
-      encodeURIComponent(
-        `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 800 1000"><defs><linearGradient id="g" x1="1" y1="0" x2="0" y2="1"><stop stop-color="#4a1425"/><stop offset="1" stop-color="#f7f0e8"/></linearGradient></defs><rect width="800" height="1000" fill="url(#g)"/><text x="400" y="520" text-anchor="middle" fill="#f7f0e8" font-family="Georgia, serif" font-size="42">Momento 2</text></svg>`,
-      ),
-    alt: "Demo foto 2",
+    src: "/landing/demo-2.png",
+    alt: "Casal caminhando de mãos dadas em rua iluminada",
   },
   {
-    src:
-      "data:image/svg+xml," +
-      encodeURIComponent(
-        `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 800 1000"><defs><linearGradient id="g" x1="0.5" y1="0" x2="0.5" y2="1"><stop stop-color="#8a3a52"/><stop offset="1" stop-color="#ebe0d2"/></linearGradient></defs><rect width="800" height="1000" fill="url(#g)"/><text x="400" y="520" text-anchor="middle" fill="#f7f0e8" font-family="Georgia, serif" font-size="42">Momento 3</text></svg>`,
-      ),
-    alt: "Demo foto 3",
+    src: "/landing/demo-3.png",
+    alt: "Casal sorrindo juntos em um jantar aconchegante",
   },
 ];
 
