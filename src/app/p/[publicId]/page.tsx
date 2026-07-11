@@ -33,19 +33,14 @@ export default async function CouplePublicPage({ params }: Props) {
     .eq("order_id", o.id)
     .order("sort_order", { ascending: true });
 
-  const signed = await Promise.all(
-    ((photos ?? []) as OrderPhoto[]).map(async (p) => {
-      const { data } = await supabaseAdmin()
-        .storage.from("couple-photos")
-        .createSignedUrl(p.storage_path, 60 * 60);
-      return data?.signedUrl
-        ? { src: data.signedUrl, alt: `${o.name1} & ${o.name2}` }
-        : null;
-    }),
-  );
+  const list = (photos ?? []) as OrderPhoto[];
+  if (list.length === 0) notFound();
 
-  const photoList = signed.filter(Boolean) as { src: string; alt: string }[];
-  if (photoList.length === 0) notFound();
+  // Proxy same-origin (evita <img> quebrado com signed URL cross-origin / encoding).
+  const photoList = list.map((p) => ({
+    src: `/api/drafts/${o.id}/photos/signed?path=${encodeURIComponent(p.storage_path)}`,
+    alt: `${o.name1} & ${o.name2}`,
+  }));
 
   return (
     <CouplePageView

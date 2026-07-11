@@ -43,7 +43,7 @@ async function downloadPhotoDataUrls(orderId: string): Promise<string[]> {
 async function uploadAsset(path: string, body: Buffer, contentType: string) {
   const { error } = await supabaseAdmin()
     .storage.from("order-assets")
-    .upload(path, body, { contentType, upsert: true });
+    .upload(path, new Uint8Array(body), { contentType, upsert: true });
   if (error) {
     console.error("uploadAsset", path, error);
     throw new Error(`Falha ao salvar ${path}`);

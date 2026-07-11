@@ -41,6 +41,7 @@ export async function createCheckoutPreference(input: {
 }) {
   const base = appUrl();
   const preference = mpPreference();
+  void input.buyerEmail; // permanece no pedido (Resend); não vai na Preference MP
 
   const result = await preference.create({
     body: {
@@ -54,7 +55,9 @@ export async function createCheckoutPreference(input: {
           currency_id: "BRL",
         },
       ],
-      payer: { email: input.buyerEmail },
+      // Não enviar payer.email na Preference: em sandbox, um e-mail real
+      // (ex. Gmail de produção) faz o MP misturar contas e retornar
+      // "Uma das partes … é de teste". O e-mail do comprador fica só no nosso DB (Resend).
       external_reference: input.orderId,
       metadata: {
         order_id: input.orderId,
@@ -69,13 +72,18 @@ export async function createCheckoutPreference(input: {
       auto_return: "approved",
       notification_url: `${base}/api/webhooks/mercadopago?source_news=webhooks`,
       statement_descriptor: "NOSSO TEMPO",
+      // Evita excluded_* com id "" (default da API), que trava o botão Pagar no checkout.
+      payment_methods: {
+        excluded_payment_methods: [],
+        excluded_payment_types: [],
+        installments: 12,
+      },
     },
   });
 
-  const initPoint =
-    process.env.NODE_ENV === "production"
-      ? result.init_point
-      : (result.sandbox_init_point ?? result.init_point);
+  // Checkout Pro: com credenciais de PRODUÇÃO do vendedor de TESTE, usar init_point
+  // (não sandbox_init_point). Ver docs MP — test accounts Seller + Buyer.
+  const initPoint = result.init_point ?? result.sandbox_init_point;
 
   if (!result.id || !initPoint) {
     throw new Error("Preferência Mercado Pago sem id/init_point");

@@ -8,7 +8,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 /**
  * GET /api/drafts/[id]/photos/signed?path=
- * Retorna URL assinada curta para preview no wizard (só draft/pending).
+ * Proxy same-origin da foto (evita <img> quebrado em redirect cross-origin).
  */
 export async function GET(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
@@ -35,13 +35,25 @@ export async function GET(req: Request, ctx: Ctx) {
 
     const { data, error } = await supabaseAdmin()
       .storage.from("couple-photos")
-      .createSignedUrl(path, 60 * 30);
+      .download(path);
 
-    if (error || !data?.signedUrl) {
-      return NextResponse.json({ error: "Falha ao assinar." }, { status: 500 });
+    if (error || !data) {
+      console.error("photo download", error);
+      return NextResponse.json({ error: "Falha ao carregar foto." }, { status: 500 });
     }
 
-    return NextResponse.redirect(data.signedUrl);
+    // Uint8Array (não Buffer): Buffer no NextResponse pode corromper binário (UTF-8).
+    const bytes = new Uint8Array(await data.arrayBuffer());
+    const contentType = data.type || "image/webp";
+
+    return new NextResponse(bytes, {
+      status: 200,
+      headers: {
+        "Content-Type": contentType,
+        "Content-Length": String(bytes.byteLength),
+        "Cache-Control": "private, max-age=1800",
+      },
+    });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "Serviço indisponível." }, { status: 503 });

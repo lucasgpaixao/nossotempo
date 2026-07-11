@@ -103,7 +103,7 @@ export async function POST(req: Request, ctx: Ctx) {
 
     const { error: upErr } = await supabaseAdmin()
       .storage.from("couple-photos")
-      .upload(storagePath, resized, {
+      .upload(storagePath, new Uint8Array(resized), {
         contentType: "image/webp",
         upsert: false,
       });

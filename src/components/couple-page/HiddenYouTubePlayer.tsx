@@ -110,6 +110,7 @@ export function HiddenYouTubePlayer({ videoId, title, className }: Props) {
     return () => {
       cancelled = true;
       try {
+        playerRef.current?.pauseVideo();
         playerRef.current?.destroy();
       } catch {
         /* ignore */
@@ -117,6 +118,33 @@ export function HiddenYouTubePlayer({ videoId, title, className }: Props) {
       playerRef.current = null;
     };
   }, [videoId]);
+
+  // Pausa em segundo plano / aba oculta; retoma se a página voltar ao foco.
+  useEffect(() => {
+    function onVisibility() {
+      const p = playerRef.current;
+      if (!p) return;
+      try {
+        if (document.hidden) p.pauseVideo();
+        else p.playVideo();
+      } catch {
+        /* ignore */
+      }
+    }
+    function onPageHide() {
+      try {
+        playerRef.current?.pauseVideo();
+      } catch {
+        /* ignore */
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, []);
 
   function toggleMute() {
     const p = playerRef.current;
