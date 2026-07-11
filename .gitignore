@@ -38,3 +38,6 @@ Thumbs.db
 .vercel
 
 .vercel
+
+# MCP local config (contains API tokens)
+.mcp.json

@@ -11,7 +11,7 @@ function resendClient() {
 }
 
 function fromAddress() {
-  return process.env.EMAIL_FROM ?? "Nosso Tempo <onboarding@resend.dev>";
+  return process.env.EMAIL_FROM ?? "Nosso Tempo <contato@nossotempo.ampliautomacao.com.br>";
 }
 
 function escapeHtml(s: string) {
