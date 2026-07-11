@@ -2,10 +2,22 @@ import { z } from "zod";
 
 export const draftCreateSchema = z.object({}).strict();
 
+/** Texto do rascunho: vazio vira null (autosave parcial). Obrigatório só no Continuar. */
+const draftText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .optional()
+    .transform((value) => {
+      if (value === undefined) return undefined;
+      return value.length === 0 ? null : value;
+    });
+
 export const draftUpdateSchema = z
   .object({
-    name1: z.string().trim().min(1).max(80).optional(),
-    name2: z.string().trim().min(1).max(80).optional(),
+    name1: draftText(80),
+    name2: draftText(80),
     /** ISO date YYYY-MM-DD */
     startedDate: z
       .string()
@@ -17,7 +29,7 @@ export const draftUpdateSchema = z
       .regex(/^\d{2}:\d{2}$/)
       .optional()
       .nullable(),
-    message: z.string().trim().min(1).max(500).optional(),
+    message: draftText(500),
     youtubeVideoId: z.string().trim().min(1).max(32).optional().nullable(),
     youtubeTitle: z.string().trim().max(200).optional().nullable(),
     youtubeThumbnail: z.string().url().optional().nullable(),

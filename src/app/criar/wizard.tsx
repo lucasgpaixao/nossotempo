@@ -429,6 +429,7 @@ export default function CriarWizard() {
                 value={name1}
                 onChange={(e) => {
                   setName1(e.target.value);
+                  setError(null);
                   debouncedPatch({ name1: e.target.value, name2 });
                 }}
                 placeholder="Ex.: Ana"
@@ -441,6 +442,7 @@ export default function CriarWizard() {
                 value={name2}
                 onChange={(e) => {
                   setName2(e.target.value);
+                  setError(null);
                   debouncedPatch({ name1, name2: e.target.value });
                 }}
                 placeholder="Ex.: Bruno"
