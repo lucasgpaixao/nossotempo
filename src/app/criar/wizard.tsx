@@ -524,6 +524,7 @@ export default function CriarWizard() {
               rows={6}
               onChange={(e) => {
                 setMessage(e.target.value);
+                setError(null);
                 debouncedPatch({ message: e.target.value });
               }}
               placeholder="Escreva o que quiser eternizar…"
