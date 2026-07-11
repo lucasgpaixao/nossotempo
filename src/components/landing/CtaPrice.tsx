@@ -1,6 +1,6 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { formatBRL } from "@/lib/pricing";
+import { cn } from "@/lib/utils";
 
 type Props = {
   priceCoreCents: number;
@@ -24,13 +24,15 @@ export function CtaPrice({ priceCoreCents }: Props) {
           presentear.
         </p>
         <div className="relative mt-8 flex flex-col items-center gap-3">
-          <Button
-            asChild
-            size="lg"
-            className="bg-cream text-wine-deep hover:bg-cream-deep"
+          <a
+            href="/criar"
+            className={cn(
+              buttonVariants({ size: "lg" }),
+              "bg-cream text-wine-deep hover:bg-cream-deep",
+            )}
           >
-            <Link href="/criar">Criar agora — {price}</Link>
-          </Button>
+            Criar agora — {price}
+          </a>
           <p className="text-sm text-cream/65">Pagamento único · Pix ou cartão</p>
         </div>
       </div>

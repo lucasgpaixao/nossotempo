@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { CtaPrice } from "@/components/landing/CtaPrice";
 import { Faq } from "@/components/landing/Faq";
 import { HeroDemo } from "@/components/landing/HeroDemo";
 import { PromoBanner } from "@/components/landing/PromoBanner";
 import { Steps } from "@/components/landing/Steps";
 import { formatBRL, getSiteSettings } from "@/lib/pricing";
+import { cn } from "@/lib/utils";
 
 export default async function HomePage() {
   const settings = await getSiteSettings();
@@ -37,9 +38,15 @@ export default async function HomePage() {
         <p className="font-heading text-xl font-semibold tracking-tight text-wine">
           Nosso Tempo
         </p>
-        <Button asChild variant="outline" className="border-wine/30 text-wine">
-          <Link href="/criar">Criar página</Link>
-        </Button>
+        <a
+          href="/criar"
+          className={cn(
+            buttonVariants({ variant: "outline" }),
+            "border-wine/30 text-wine",
+          )}
+        >
+          Criar página
+        </a>
       </header>
 
       <section className="relative z-10 mx-auto grid w-full max-w-5xl flex-1 items-center gap-12 px-6 pb-16 pt-4 lg:grid-cols-2 lg:gap-16 lg:pb-24 lg:pt-8">
@@ -52,13 +59,15 @@ export default async function HomePage() {
             mensagem, música e um QR Code para abrir a surpresa.
           </h1>
           <div className="mt-8 flex flex-wrap items-center gap-4">
-            <Button
-              asChild
-              size="lg"
-              className="bg-wine text-cream hover:bg-wine-deep"
+            <a
+              href="/criar"
+              className={cn(
+                buttonVariants({ size: "lg" }),
+                "bg-wine text-cream hover:bg-wine-deep",
+              )}
             >
-              <Link href="/criar">Criar agora — {price}</Link>
-            </Button>
+              Criar agora — {price}
+            </a>
             <p className="text-sm text-muted-foreground">
               Pagamento único · vitalício
             </p>
