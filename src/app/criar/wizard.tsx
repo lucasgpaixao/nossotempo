@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ImagePlus, Loader2 } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -94,7 +94,6 @@ export default function CriarWizard() {
     thumbnail: string;
   } | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -151,7 +150,6 @@ export default function CriarWizard() {
     }
     setSaving(true);
     setError(null);
-    setCheckoutUrl(null);
     try {
       const patchRes = await fetch(`/api/drafts/${draft.id}`, {
         method: "PATCH",
@@ -177,12 +175,9 @@ export default function CriarWizard() {
         throw new Error(j.error ?? "Falha ao iniciar pagamento");
       }
       if (!j.initPoint) throw new Error("Checkout sem URL de pagamento");
-      // Guarda o link e deixa o usuário abrir com clique real (evita tela /crawlers
-      // do anti-bot do MP em alguns navegadores / webviews).
-      setCheckoutUrl(j.initPoint as string);
+      window.location.href = j.initPoint as string;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro no checkout");
-    } finally {
       setSaving(false);
     }
   }, [draft, email, terms]);
@@ -713,38 +708,14 @@ export default function CriarWizard() {
             <p className="text-sm text-muted-foreground">
               Pagamento via Mercado Pago (Pix ou cartão).
             </p>
-            {checkoutUrl ? (
-              <div className="space-y-3 rounded-xl border border-wine/20 bg-wine/5 p-4">
-                <p className="text-sm font-medium text-wine-deep">
-                  Checkout pronto. Abra o Mercado Pago para pagar:
-                </p>
-                <a
-                  href={checkoutUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cn(
-                    buttonVariants({ size: "lg" }),
-                    "w-full bg-wine text-cream hover:bg-wine-deep",
-                  )}
-                >
-                  Abrir Mercado Pago
-                </a>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  Use o <strong className="font-medium text-foreground">Chrome</strong>{" "}
-                  (janela anônima). Se aparecer só o logo cinza, feche abas do
-                  Mercado Pago, limpe cookies dele e abra este link de novo.
-                </p>
-              </div>
-            ) : (
-              <Button
-                size="lg"
-                className="w-full bg-wine text-cream hover:bg-wine-deep"
-                disabled={saving || !email || !terms}
-                onClick={() => void payCore()}
-              >
-                {saving ? "Preparando checkout…" : "Pagar com Mercado Pago"}
-              </Button>
-            )}
+            <Button
+              size="lg"
+              className="w-full bg-wine text-cream hover:bg-wine-deep"
+              disabled={saving || !email || !terms}
+              onClick={() => void payCore()}
+            >
+              {saving ? "Redirecionando…" : "Pagar com Mercado Pago"}
+            </Button>
           </div>
         )}
 
