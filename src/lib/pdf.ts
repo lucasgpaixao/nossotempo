@@ -1,6 +1,7 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import type { ReactElement } from "react";
 import { createElement } from "react";
+import sharp from "sharp";
 import { LetterPdf } from "@/components/pdf/LetterPdf";
 import { PolaroidPdf } from "@/components/pdf/PolaroidPdf";
 import { appUrl } from "@/lib/app-url";
@@ -33,8 +34,9 @@ async function downloadPhotoDataUrls(orderId: string): Promise<string[]> {
       .download(p.storage_path);
     if (error || !data) continue;
     const ab = await data.arrayBuffer();
-    const mime = data.type || "image/webp";
-    urls.push(await bufferToDataUrl(Buffer.from(ab), mime));
+    // @react-pdf/renderer só suporta PNG/JPEG; normaliza (fotos são WebP no upload).
+    const png = await sharp(Buffer.from(ab)).png().toBuffer();
+    urls.push(await bufferToDataUrl(png, "image/png"));
   }
 
   return urls;
