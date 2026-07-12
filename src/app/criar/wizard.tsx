@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { CouplePageView } from "@/components/couple-page/CouplePageView";
 import { cn } from "@/lib/utils";
 
+const MAX_PHOTOS = 3;
+
 const STEPS = [
   "Nomes",
   "Data",
@@ -292,25 +294,35 @@ export default function CriarWizard() {
     });
   }
 
-  async function uploadPhoto(file: File) {
-    if (!draft) return;
+  async function uploadPhotos(files: File[]) {
+    if (!draft || files.length === 0) return;
+    const remaining = MAX_PHOTOS - photos.length;
+    const toUpload = files.slice(0, remaining);
+    const skipped = files.length - toUpload.length;
+
     setUploadingPhoto(true);
-    setError(null);
+    setError(
+      skipped > 0
+        ? `Só cabem mais ${remaining} foto(s); ${skipped} não foi(ram) enviada(s).`
+        : null,
+    );
     try {
-      const fd = new FormData();
-      fd.set("file", file);
-      const res = await fetch(`/api/drafts/${draft.id}/photos`, {
-        method: "POST",
-        body: fd,
-      });
-      const j = await res.json();
-      if (!res.ok) {
-        setError(j.error ?? "Falha no upload");
-        return;
+      for (const file of toUpload) {
+        const fd = new FormData();
+        fd.set("file", file);
+        const res = await fetch(`/api/drafts/${draft.id}/photos`, {
+          method: "POST",
+          body: fd,
+        });
+        const j = await res.json();
+        if (!res.ok) {
+          setError(j.error ?? "Falha no upload");
+          return;
+        }
+        setPhotos((p) => [...p, j.photo]);
       }
-      setPhotos((p) => [...p, j.photo]);
     } catch {
-      setError("Falha ao enviar a foto. Tente de novo.");
+      setError("Falha ao enviar as fotos. Tente de novo.");
     } finally {
       setUploadingPhoto(false);
     }
@@ -494,30 +506,32 @@ export default function CriarWizard() {
         {step === 2 && (
           <div className="space-y-4">
             <h1 className="font-heading text-2xl font-semibold text-wine-deep">
-              Fotos (1 a 3)
+              Fotos (1 a {MAX_PHOTOS})
             </h1>
             <p className="text-sm text-muted-foreground">
-              Envie de 1 a 3 fotos em JPG, PNG ou WebP.
+              Envie de 1 a {MAX_PHOTOS} fotos em JPG, PNG ou WebP. Pode
+              selecionar várias de uma vez.
             </p>
             <input
               ref={photoInputRef}
               type="file"
               accept="image/jpeg,image/png,image/webp"
+              multiple
               className="sr-only"
-              disabled={photos.length >= 3 || uploadingPhoto}
+              disabled={photos.length >= MAX_PHOTOS || uploadingPhoto}
               onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void uploadPhoto(f);
+                const files = Array.from(e.target.files ?? []);
+                if (files.length) void uploadPhotos(files);
                 e.target.value = "";
               }}
             />
             <button
               type="button"
-              disabled={photos.length >= 3 || uploadingPhoto}
+              disabled={photos.length >= MAX_PHOTOS || uploadingPhoto}
               onClick={() => photoInputRef.current?.click()}
               className={cn(
                 "flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors",
-                photos.length >= 3 || uploadingPhoto
+                photos.length >= MAX_PHOTOS || uploadingPhoto
                   ? "cursor-not-allowed border-wine/15 bg-cream-deep/40 text-muted-foreground"
                   : "border-wine/45 bg-wine/5 text-wine-deep hover:border-wine hover:bg-wine/10",
               )}
@@ -529,7 +543,7 @@ export default function CriarWizard() {
                     aria-hidden
                   />
                   <span className="text-sm font-medium text-wine-deep">
-                    Enviando foto…
+                    Enviando fotos…
                   </span>
                 </>
               ) : (
@@ -538,13 +552,13 @@ export default function CriarWizard() {
                     <ImagePlus className="size-6" aria-hidden />
                   </span>
                   <span className="text-base font-semibold">
-                    {photos.length >= 3
-                      ? "Limite de 3 fotos atingido"
-                      : "Escolher foto"}
+                    {photos.length >= MAX_PHOTOS
+                      ? `Limite de ${MAX_PHOTOS} fotos atingido`
+                      : "Escolher fotos"}
                   </span>
-                  {photos.length < 3 ? (
+                  {photos.length < MAX_PHOTOS ? (
                     <span className="text-sm text-muted-foreground">
-                      Toque aqui para selecionar uma imagem
+                      Toque aqui para selecionar uma ou mais imagens
                     </span>
                   ) : null}
                 </>
