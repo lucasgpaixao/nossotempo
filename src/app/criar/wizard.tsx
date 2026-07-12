@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CouplePageView } from "@/components/couple-page/CouplePageView";
 import { formatBRL } from "@/lib/format";
+import { MESSAGE_TEMPLATES } from "@/lib/message-templates";
 import type { Pricing } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
@@ -599,6 +600,27 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
             <h1 className="font-heading text-2xl font-semibold text-wine-deep">
               Mensagem
             </h1>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Sem inspiração? Comece com um modelo e edite à vontade:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {MESSAGE_TEMPLATES.map((t) => (
+                  <button
+                    key={t.label}
+                    type="button"
+                    onClick={() => {
+                      setMessage(t.text);
+                      setError(null);
+                      debouncedPatch({ message: t.text });
+                    }}
+                    className="rounded-full border border-wine/30 bg-wine/5 px-3 py-1 text-xs font-medium text-wine-deep transition-colors hover:border-wine hover:bg-wine/10"
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <Textarea
               value={message}
               maxLength={500}
