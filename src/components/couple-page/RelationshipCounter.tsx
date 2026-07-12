@@ -42,7 +42,8 @@ export function RelationshipCounter({ startedAt, className }: Props) {
   return (
     <div
       className={cn(
-        "grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6",
+        // Fixo em 3 colunas / 2 linhas: anos-meses-dias em cima, horas-min-seg embaixo.
+        "grid grid-cols-3 gap-3",
         className,
       )}
     >
