@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
+export function AdminShell({
+  children,
+  isAuthenticated,
+}: {
+  children: React.ReactNode;
+  isAuthenticated: boolean;
+}) {
   return (
     <div className="min-h-full bg-background">
       <header className="border-b border-wine/15 px-6 py-4">
@@ -20,20 +26,25 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <Link href="/admin/settings" className="hover:text-wine">
               Settings
             </Link>
-            <Link href="/admin/login" className="hover:text-wine">
-              Login
-            </Link>
-            <button
-              type="button"
-              className="hover:text-wine"
-              onClick={() => {
-                void fetch("/api/admin/logout", { method: "POST" }).then(() => {
-                  window.location.href = "/admin/login";
-                });
-              }}
-            >
-              Sair
-            </button>
+            {isAuthenticated ? (
+              <button
+                type="button"
+                className="hover:text-wine"
+                onClick={() => {
+                  void fetch("/api/admin/logout", { method: "POST" }).then(
+                    () => {
+                      window.location.href = "/admin/login";
+                    },
+                  );
+                }}
+              >
+                Sair
+              </button>
+            ) : (
+              <Link href="/admin/login" className="hover:text-wine">
+                Login
+              </Link>
+            )}
           </nav>
         </div>
       </header>

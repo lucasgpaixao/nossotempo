@@ -1,9 +1,11 @@
 import { AdminShell } from "@/components/admin/AdminShell";
+import { requireAdmin } from "@/lib/admin-auth";
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <AdminShell>{children}</AdminShell>;
+  const admin = await requireAdmin();
+  return <AdminShell isAuthenticated={Boolean(admin)}>{children}</AdminShell>;
 }
