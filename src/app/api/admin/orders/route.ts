@@ -49,13 +49,29 @@ export async function GET(req: Request) {
     return NextResponse.json({ order: o, assets });
   }
 
-  const { data, error } = await supabaseAdmin()
+  const status = url.searchParams.get("status");
+  const from = url.searchParams.get("from");
+  const to = url.searchParams.get("to");
+  const q = url.searchParams.get("q")?.trim();
+
+  let query = supabaseAdmin()
     .from("orders")
     .select(
       "id, public_id, status, buyer_email, name1, name2, created_at, updated_at, mp_payment_core_id, mp_payment_upsell_id, mp_payment_downsell_id",
     )
     .order("created_at", { ascending: false })
     .limit(100);
+
+  if (status) query = query.eq("status", status);
+  if (from) query = query.gte("created_at", from);
+  if (to) query = query.lte("created_at", to);
+  if (q) {
+    query = query.or(
+      `buyer_email.ilike.%${q}%,name1.ilike.%${q}%,name2.ilike.%${q}%`,
+    );
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: "Falha ao listar." }, { status: 500 });
