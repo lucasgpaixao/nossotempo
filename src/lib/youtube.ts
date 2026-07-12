@@ -66,12 +66,23 @@ export async function searchYoutube(
   return items;
 }
 
-export async function validateYoutubeEmbed(videoId: string): Promise<{
+type ValidateResult = {
   ok: boolean;
   title?: string;
   thumbnail?: string;
   reason?: string;
-}> {
+};
+
+const validateCache = new Map<string, CacheEntry<ValidateResult>>();
+
+export async function validateYoutubeEmbed(
+  videoId: string,
+): Promise<ValidateResult> {
+  const hit = validateCache.get(videoId);
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) {
+    return hit.data;
+  }
+
   const url = new URL(`${YT_BASE}/videos`);
   url.searchParams.set("part", "status,snippet,contentDetails");
   url.searchParams.set("id", videoId);
@@ -97,17 +108,21 @@ export async function validateYoutubeEmbed(videoId: string): Promise<{
     return { ok: false, reason: "Vídeo não encontrado." };
   }
   if (!item.status.embeddable || item.status.privacyStatus === "private") {
-    return {
+    const result: ValidateResult = {
       ok: false,
       reason: "Este vídeo não permite embed. Escolha outro.",
     };
+    // Não cacheia recusas: metadados de privacidade/embeddable podem mudar.
+    return result;
   }
 
-  return {
+  const result: ValidateResult = {
     ok: true,
     title: item.snippet.title,
     thumbnail:
       item.snippet.thumbnails?.medium?.url ??
       item.snippet.thumbnails?.default?.url,
   };
+  validateCache.set(videoId, { at: Date.now(), data: result });
+  return result;
 }
