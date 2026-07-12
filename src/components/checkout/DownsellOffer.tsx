@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { track } from "@vercel/analytics";
 import { Button } from "@/components/ui/button";
 import { formatBRL } from "@/lib/pricing";
 
@@ -24,6 +25,7 @@ export function DownsellOffer({ orderId, priceCents }: Props) {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j.error ?? "Falha");
+      track("downsell_yes");
       window.location.href = j.initPoint;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro");
@@ -33,6 +35,7 @@ export function DownsellOffer({ orderId, priceCents }: Props) {
 
   async function decline() {
     setLoading(true);
+    track("downsell_no");
     try {
       await fetch(`/api/orders/${orderId}/complete`, { method: "POST" });
     } catch {

@@ -1,3 +1,4 @@
+import { track } from "@vercel/analytics/server";
 import { createEditToken } from "@/lib/ids";
 import { appUrl } from "@/lib/app-url";
 import { generateLetterPdf, generatePolaroidPdf, regenerateAssets } from "@/lib/pdf";
@@ -49,6 +50,12 @@ export async function fulfillCore(
 
   let fulfilled = data as Order;
   fulfilled = await regenerateAssets(fulfilled.id);
+
+  try {
+    await track("core_paid");
+  } catch (e) {
+    console.error("analytics core_paid failed", e);
+  }
 
   try {
     await sendDeliveryEmail(fulfilled);

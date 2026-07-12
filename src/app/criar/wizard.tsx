@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { track } from "@vercel/analytics";
 import { ImagePlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -175,6 +176,7 @@ export default function CriarWizard() {
         throw new Error(j.error ?? "Falha ao iniciar pagamento");
       }
       if (!j.initPoint) throw new Error("Checkout sem URL de pagamento");
+      track("checkout_core");
       window.location.href = j.initPoint as string;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro no checkout");
@@ -218,6 +220,7 @@ export default function CriarWizard() {
           const j = await res.json();
           if (cancelled) return;
           setDraft(j.draft);
+          track("wizard_start");
           router.replace(`/criar?draft=${j.draft.id}`);
         }
       } catch (e) {
