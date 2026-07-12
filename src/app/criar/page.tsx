@@ -1,7 +1,9 @@
 ﻿import { Suspense } from "react";
+import { getPricing } from "@/lib/pricing";
 import CriarWizard from "./wizard";
 
-export default function CriarPage() {
+export default async function CriarPage() {
+  const pricing = await getPricing();
   return (
     <Suspense
       fallback={
@@ -10,7 +12,7 @@ export default function CriarPage() {
         </main>
       }
     >
-      <CriarWizard />
+      <CriarWizard pricing={pricing} />
     </Suspense>
   );
 }

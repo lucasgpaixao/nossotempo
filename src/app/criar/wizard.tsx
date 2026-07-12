@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CouplePageView } from "@/components/couple-page/CouplePageView";
+import { formatBRL } from "@/lib/format";
+import type { Pricing } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
 const MAX_PHOTOS = 6;
@@ -67,7 +69,7 @@ function splitStartedAt(iso: string | null) {
   };
 }
 
-export default function CriarWizard() {
+export default function CriarWizard({ pricing }: { pricing: Pricing }) {
   const router = useRouter();
   const search = useSearchParams();
   const draftParam = search.get("draft");
@@ -87,6 +89,8 @@ export default function CriarWizard() {
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
   const [terms, setTerms] = useState(false);
+  const [wantsUpsell, setWantsUpsell] = useState(false);
+  const [wantsDownsell, setWantsDownsell] = useState(false);
 
   const [ytQuery, setYtQuery] = useState("");
   const [ytResults, setYtResults] = useState<YtItem[]>([]);
@@ -171,6 +175,8 @@ export default function CriarWizard() {
           draftId: draft.id,
           buyerEmail: email,
           termsAccepted: true,
+          wantsUpsell,
+          wantsDownsell,
         }),
       });
       const j = await res.json().catch(() => ({}));
@@ -179,12 +185,14 @@ export default function CriarWizard() {
       }
       if (!j.initPoint) throw new Error("Checkout sem URL de pagamento");
       track("checkout_core");
+      track(wantsUpsell ? "upsell_yes" : "upsell_no");
+      track(wantsDownsell ? "downsell_yes" : "downsell_no");
       window.location.href = j.initPoint as string;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro no checkout");
       setSaving(false);
     }
-  }, [draft, email, terms]);
+  }, [draft, email, terms, wantsUpsell, wantsDownsell]);
 
   useEffect(() => {
     let cancelled = false;
@@ -703,6 +711,37 @@ export default function CriarWizard() {
                 placeholder="para receber o link e o QR"
               />
             </div>
+
+            <div className="space-y-2 rounded-lg border border-wine/15 bg-cream-deep/30 p-3">
+              <p className="text-sm font-medium text-wine-deep">
+                Extras (opcional)
+              </p>
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={wantsUpsell}
+                  onChange={(e) => setWantsUpsell(e.target.checked)}
+                />
+                <span>
+                  Polaroids para imprimir (PDF) —{" "}
+                  {formatBRL(pricing.priceUpsellCents)}
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={wantsDownsell}
+                  onChange={(e) => setWantsDownsell(e.target.checked)}
+                />
+                <span>
+                  Carta personalizada (PDF) —{" "}
+                  {formatBRL(pricing.priceDownsellCents)}
+                </span>
+              </label>
+            </div>
+
             <label className="flex items-start gap-2 text-sm">
               <input
                 type="checkbox"
@@ -723,7 +762,14 @@ export default function CriarWizard() {
               </span>
             </label>
             <p className="text-sm text-muted-foreground">
-              Pagamento via Mercado Pago (Pix ou cartão).
+              Pagamento via Mercado Pago (Pix ou cartão). Total:{" "}
+              <span className="font-medium text-wine-deep">
+                {formatBRL(
+                  pricing.priceCoreCents +
+                    (wantsUpsell ? pricing.priceUpsellCents : 0) +
+                    (wantsDownsell ? pricing.priceDownsellCents : 0),
+                )}
+              </span>
             </p>
             <Button
               size="lg"

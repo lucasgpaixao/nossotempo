@@ -42,6 +42,8 @@ export const checkoutCoreSchema = z.object({
   draftId: z.string().uuid(),
   buyerEmail: z.string().trim().email(),
   termsAccepted: z.literal(true),
+  wantsUpsell: z.boolean().optional(),
+  wantsDownsell: z.boolean().optional(),
 });
 
 export const youtubeSearchSchema = z.object({

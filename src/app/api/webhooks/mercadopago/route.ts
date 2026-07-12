@@ -35,12 +35,15 @@ async function processPayment(paymentId: string) {
     return { ok: true, skipped: true as const };
   }
 
-  const kind =
-    ((payment.metadata as { kind?: string } | undefined)?.kind as
-      | "core"
-      | "upsell"
-      | "downsell"
-      | undefined) ?? "core";
+  const metadata = payment.metadata as
+    | { kinds?: string; kind?: string }
+    | undefined;
+  // "kinds" (plural, carrinho com múltiplos itens numa preference só) tem
+  // prioridade; "kind" (singular) é o formato legado de preferences antigas.
+  const kinds = (metadata?.kinds ?? metadata?.kind ?? "core")
+    .split(",")
+    .map((k) => k.trim())
+    .filter(Boolean);
 
   const { data: order, error } = await supabaseAdmin()
     .from("orders")
@@ -53,14 +56,25 @@ async function processPayment(paymentId: string) {
     return { ok: false, status: 404 };
   }
 
-  const o = order as Order;
+  let o = order as Order;
 
-  if (kind === "upsell") {
-    await markUpsellPaid(o, paymentId);
-  } else if (kind === "downsell") {
-    await markDownsellPaid(o, paymentId);
-  } else {
-    await fulfillCore(o, paymentId);
+  if (kinds.includes("core")) {
+    o = await fulfillCore(o, paymentId);
+  }
+  if (kinds.includes("upsell")) {
+    o = await markUpsellPaid(o, paymentId);
+  }
+  if (kinds.includes("downsell")) {
+    o = await markDownsellPaid(o, paymentId);
+  }
+
+  // Carrinho de item único: pagamento resolve o pedido de uma vez, sem
+  // etapa de oferta pós-compra — status final é sempre "completed".
+  if (kinds.includes("core") && o.status !== "completed") {
+    await supabaseAdmin()
+      .from("orders")
+      .update({ status: "completed", updated_at: new Date().toISOString() })
+      .eq("id", o.id);
   }
 
   return { ok: true };

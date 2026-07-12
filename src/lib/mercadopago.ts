@@ -31,12 +31,16 @@ export function mpPayment() {
 
 export type CheckoutKind = "core" | "upsell" | "downsell";
 
-export async function createCheckoutPreference(input: {
-  orderId: string;
-  publicId: string;
+export type CheckoutItem = {
   kind: CheckoutKind;
   title: string;
   unitPrice: number; // BRL float, e.g. 29.9
+};
+
+export async function createCheckoutPreference(input: {
+  orderId: string;
+  publicId: string;
+  items: CheckoutItem[];
   buyerEmail: string;
 }) {
   const base = appUrl();
@@ -45,16 +49,14 @@ export async function createCheckoutPreference(input: {
 
   const result = await preference.create({
     body: {
-      items: [
-        {
-          id: `${input.kind}-${input.orderId}`,
-          title: input.title,
-          description: input.title,
-          quantity: 1,
-          unit_price: input.unitPrice,
-          currency_id: "BRL",
-        },
-      ],
+      items: input.items.map((item) => ({
+        id: `${item.kind}-${input.orderId}`,
+        title: item.title,
+        description: item.title,
+        quantity: 1,
+        unit_price: item.unitPrice,
+        currency_id: "BRL",
+      })),
       // Não enviar payer.email na Preference: em sandbox, um e-mail real
       // (ex. Gmail de produção) faz o MP misturar contas e retornar
       // "Uma das partes … é de teste". O e-mail do comprador fica só no nosso DB (Resend).
@@ -62,7 +64,7 @@ export async function createCheckoutPreference(input: {
       metadata: {
         order_id: input.orderId,
         public_id: input.publicId,
-        kind: input.kind,
+        kinds: input.items.map((item) => item.kind).join(","),
       },
       back_urls: {
         success: `${base}/sucesso/${input.orderId}`,

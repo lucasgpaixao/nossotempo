@@ -1,5 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
+export { formatBRL } from "@/lib/format";
+
 export type Pricing = {
   priceCoreCents: number;
   priceUpsellCents: number;
@@ -24,13 +26,6 @@ const DEFAULTS: SiteSettings = {
   supportEmail: null,
   supportWhatsapp: null,
 };
-
-export function formatBRL(cents: number): string {
-  return (cents / 100).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
-}
 
 export async function getSiteSettings(): Promise<SiteSettings> {
   try {

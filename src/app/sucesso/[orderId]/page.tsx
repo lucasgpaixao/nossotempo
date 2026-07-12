@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DownsellOffer } from "@/components/checkout/DownsellOffer";
-import { UpsellOffer } from "@/components/checkout/UpsellOffer";
 import { Button } from "@/components/ui/button";
 import { appUrl } from "@/lib/app-url";
 import { formatBRL, getPricing } from "@/lib/pricing";
@@ -10,7 +8,7 @@ import { isPubliclyVisible, type Order } from "@/lib/types";
 
 type Props = {
   params: Promise<{ orderId: string }>;
-  searchParams: Promise<{ pending?: string; offer?: string }>;
+  searchParams: Promise<{ pending?: string }>;
 };
 
 export default async function SucessoPage({ params, searchParams }: Props) {
@@ -63,26 +61,6 @@ export default async function SucessoPage({ params, searchParams }: Props) {
   const editUrl = o.edit_token
     ? `${appUrl()}/editar/${o.edit_token}`
     : null;
-
-  const wantsDownsell = sp.offer === "downsell";
-  const done =
-    sp.offer === "done" ||
-    o.status === "completed" ||
-    o.status === "upsell_paid" ||
-    o.status === "downsell_paid";
-
-  const showUpsell =
-    !done &&
-    !wantsDownsell &&
-    !o.mp_payment_upsell_id &&
-    !o.mp_payment_downsell_id &&
-    (o.status === "core_paid" || o.status === "upsell_offered");
-
-  const showDownsell =
-    !done &&
-    wantsDownsell &&
-    !o.mp_payment_upsell_id &&
-    !o.mp_payment_downsell_id;
 
   return (
     <main className="relative mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-6 py-12">
@@ -147,32 +125,15 @@ export default async function SucessoPage({ params, searchParams }: Props) {
         ) : null}
       </div>
 
-      <div className="mt-8">
-        {showUpsell ? (
-          <UpsellOffer
-            orderId={o.id}
-            priceCents={pricing.priceUpsellCents}
-          />
-        ) : null}
-        {showDownsell ? (
-          <DownsellOffer
-            orderId={o.id}
-            priceCents={pricing.priceDownsellCents}
-          />
-        ) : null}
-        {done ? (
-          <p className="text-center text-sm text-muted-foreground">
-            Obrigado! Core {formatBRL(pricing.priceCoreCents)}
-            {o.mp_payment_upsell_id
-              ? ` · Polaroids ${formatBRL(pricing.priceUpsellCents)}`
-              : ""}
-            {o.mp_payment_downsell_id
-              ? ` · Carta ${formatBRL(pricing.priceDownsellCents)}`
-              : ""}
-            . PDFs extras entram na próxima etapa.
-          </p>
-        ) : null}
-      </div>
+      <p className="mt-8 text-center text-sm text-muted-foreground">
+        Obrigado! Core {formatBRL(pricing.priceCoreCents)}
+        {o.mp_payment_upsell_id
+          ? ` · Polaroids ${formatBRL(pricing.priceUpsellCents)}`
+          : ""}
+        {o.mp_payment_downsell_id
+          ? ` · Carta ${formatBRL(pricing.priceDownsellCents)}`
+          : ""}
+      </p>
 
       <p className="mt-10 text-center text-sm">
         <Link href="/" className="text-wine underline">
