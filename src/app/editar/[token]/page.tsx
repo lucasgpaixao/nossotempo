@@ -1,13 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { ImagePlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CouplePageView } from "@/components/couple-page/CouplePageView";
+import { cn } from "@/lib/utils";
+
+const MAX_PHOTOS = 6;
 
 type Order = {
   id: string;
@@ -63,6 +67,8 @@ export default function EditarClient() {
   const [message, setMessage] = useState("");
   const [ytId, setYtId] = useState("");
   const [ytTitle, setYtTitle] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -131,20 +137,38 @@ export default function EditarClient() {
     }
   }
 
-  async function onUpload(file: File) {
-    if (!order) return;
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch(
-      `/api/drafts/${order.id}/photos?editToken=${encodeURIComponent(token)}`,
-      { method: "POST", body: fd },
+  async function onUpload(files: File[]) {
+    if (!order || files.length === 0) return;
+    const remaining = MAX_PHOTOS - photos.length;
+    const toUpload = files.slice(0, remaining);
+    const skipped = files.length - toUpload.length;
+
+    setUploadingPhoto(true);
+    setError(
+      skipped > 0
+        ? `Só cabem mais ${remaining} foto(s); ${skipped} não foi(ram) enviada(s).`
+        : null,
     );
-    const j = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setError(j.error ?? "Falha no upload");
-      return;
+    try {
+      for (const file of toUpload) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch(
+          `/api/drafts/${order.id}/photos?editToken=${encodeURIComponent(token)}`,
+          { method: "POST", body: fd },
+        );
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError(j.error ?? "Falha no upload");
+          return;
+        }
+        setPhotos((p) => [...p, j.photo]);
+      }
+    } catch {
+      setError("Falha ao enviar as fotos. Tente de novo.");
+    } finally {
+      setUploadingPhoto(false);
     }
-    setPhotos((p) => [...p, j.photo]);
   }
 
   async function removePhoto(photoId: string) {
@@ -242,29 +266,75 @@ export default function EditarClient() {
             rows={4}
           />
         </div>
-        <div>
-          <Label>Fotos ({photos.length}/6)</Label>
+        <div className="space-y-3">
+          <Label>
+            Fotos ({photos.length}/{MAX_PHOTOS})
+          </Label>
           <input
+            ref={photoInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            className="mt-2 block w-full text-sm"
+            multiple
+            className="sr-only"
+            disabled={photos.length >= MAX_PHOTOS || uploadingPhoto}
             onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void onUpload(f);
+              const files = Array.from(e.target.files ?? []);
+              if (files.length) void onUpload(files);
               e.target.value = "";
             }}
           />
-          <ul className="mt-2 space-y-1 text-sm">
-            {photos.map((p) => (
-              <li key={p.id} className="flex justify-between gap-2">
-                <span className="truncate text-muted-foreground">{p.storage_path}</span>
-                <button
+          <button
+            type="button"
+            disabled={photos.length >= MAX_PHOTOS || uploadingPhoto}
+            onClick={() => photoInputRef.current?.click()}
+            className={cn(
+              "flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors",
+              photos.length >= MAX_PHOTOS || uploadingPhoto
+                ? "cursor-not-allowed border-wine/15 bg-cream-deep/40 text-muted-foreground"
+                : "border-wine/45 bg-wine/5 text-wine-deep hover:border-wine hover:bg-wine/10",
+            )}
+          >
+            {uploadingPhoto ? (
+              <>
+                <Loader2 className="size-8 animate-spin text-wine" aria-hidden />
+                <span className="text-sm font-medium text-wine-deep">
+                  Enviando fotos…
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="flex size-12 items-center justify-center rounded-full bg-wine text-cream shadow-sm">
+                  <ImagePlus className="size-6" aria-hidden />
+                </span>
+                <span className="text-base font-semibold">
+                  {photos.length >= MAX_PHOTOS
+                    ? `Limite de ${MAX_PHOTOS} fotos atingido`
+                    : "Escolher fotos"}
+                </span>
+                {photos.length < MAX_PHOTOS ? (
+                  <span className="text-sm text-muted-foreground">
+                    Toque aqui para selecionar uma ou mais imagens
+                  </span>
+                ) : null}
+              </>
+            )}
+          </button>
+          <ul className="space-y-2">
+            {photos.map((p, i) => (
+              <li
+                key={p.id}
+                className="flex items-center justify-between rounded-md bg-cream-deep/60 px-3 py-2 text-sm"
+              >
+                <span className="truncate">Foto {i + 1}</span>
+                <Button
                   type="button"
-                  className="text-wine underline"
+                  variant="ghost"
+                  size="sm"
+                  disabled={uploadingPhoto}
                   onClick={() => void removePhoto(p.id)}
                 >
                   Remover
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
