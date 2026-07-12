@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CouplePageView } from "@/components/couple-page/CouplePageView";
 import { cn } from "@/lib/utils";
 
-const MAX_PHOTOS = 3;
+const MAX_PHOTOS = 6;
 
 const STEPS = [
   "Nomes",

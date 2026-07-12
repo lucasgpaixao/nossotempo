@@ -6,7 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 export const runtime = "nodejs";
 
 const MAX_BYTES = 5 * 1024 * 1024;
-const MAX_PHOTOS = 3;
+const MAX_PHOTOS = 6;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 type Ctx = { params: Promise<{ id: string }> };

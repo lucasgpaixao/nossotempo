@@ -28,7 +28,7 @@ async function downloadPhotoDataUrls(orderId: string): Promise<string[]> {
   const list = (photos ?? []) as OrderPhoto[];
   const urls: string[] = [];
 
-  for (const p of list.slice(0, 3)) {
+  for (const p of list.slice(0, 6)) {
     const { data, error } = await supabaseAdmin()
       .storage.from("couple-photos")
       .download(p.storage_path);

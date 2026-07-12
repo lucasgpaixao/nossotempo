@@ -243,7 +243,7 @@ export default function EditarClient() {
           />
         </div>
         <div>
-          <Label>Fotos ({photos.length}/3)</Label>
+          <Label>Fotos ({photos.length}/6)</Label>
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"

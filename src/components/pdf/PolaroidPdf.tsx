@@ -94,6 +94,16 @@ export type PolaroidPdfProps = {
   pageUrl: string;
 };
 
+const PHOTOS_PER_PAGE = 3;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
 export function PolaroidPdf({
   name1,
   name2,
@@ -102,22 +112,25 @@ export function PolaroidPdf({
   pageUrl,
 }: PolaroidPdfProps) {
   const names = `${name1} & ${name2}`;
+  const photoPages = chunk(photoDataUrls.slice(0, 6), PHOTOS_PER_PAGE);
 
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.subtitle}>NOSSO TEMPO</Text>
-        <Text style={styles.title}>{names}</Text>
-        <View style={styles.grid}>
-          {photoDataUrls.slice(0, 3).map((src, i) => (
-            <View key={i} style={styles.polaroid} wrap={false}>
-              {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image */}
-              <Image src={src} style={styles.photo} />
-              <Text style={styles.caption}>{names}</Text>
-            </View>
-          ))}
-        </View>
-      </Page>
+      {photoPages.map((pagePhotos, pageIndex) => (
+        <Page key={pageIndex} size="A4" style={styles.page}>
+          <Text style={styles.subtitle}>NOSSO TEMPO</Text>
+          <Text style={styles.title}>{names}</Text>
+          <View style={styles.grid}>
+            {pagePhotos.map((src, i) => (
+              <View key={i} style={styles.polaroid} wrap={false}>
+                {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image */}
+                <Image src={src} style={styles.photo} />
+                <Text style={styles.caption}>{names}</Text>
+              </View>
+            ))}
+          </View>
+        </Page>
+      ))}
       <Page size="A4" style={styles.qrPage}>
         <View style={styles.frame}>
           {/* eslint-disable-next-line jsx-a11y/alt-text */}
