@@ -11,6 +11,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@react-email/components": "^1.0.12",
+    "@react-email/render": "^2.1.0",
     "@react-pdf/renderer": "^4.5.1",
     "@supabase/supabase-js": "^2.110.2",
     "@vercel/analytics": "^2.0.1",
