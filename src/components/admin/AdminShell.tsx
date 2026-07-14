@@ -20,12 +20,16 @@ export function AdminShell({
             Nosso Tempo · Admin
           </Link>
           <nav className="flex items-center gap-4 text-sm text-muted-foreground">
-            <Link href="/admin" className="hover:text-wine">
-              Pedidos
-            </Link>
-            <Link href="/admin/settings" className="hover:text-wine">
-              Settings
-            </Link>
+            {isAuthenticated && (
+              <>
+                <Link href="/admin" className="hover:text-wine">
+                  Pedidos
+                </Link>
+                <Link href="/admin/settings" className="hover:text-wine">
+                  Settings
+                </Link>
+              </>
+            )}
             {isAuthenticated ? (
               <button
                 type="button"
