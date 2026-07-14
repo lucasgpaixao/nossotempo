@@ -74,12 +74,8 @@ export async function createCheckoutPreference(input: {
       auto_return: "approved",
       notification_url: `${base}/api/webhooks/mercadopago?source_news=webhooks`,
       statement_descriptor: "NOSSO TEMPO",
-      // Evita excluded_* com id "" (default da API), que trava o botão Pagar no checkout.
-      payment_methods: {
-        excluded_payment_methods: [],
-        excluded_payment_types: [],
-        installments: 12,
-      },
+      // Omitir payment_methods evita MP retornar excluded_* com id: ""
+      // que trava o botão Pagar no Checkout.js
     },
   });
 
