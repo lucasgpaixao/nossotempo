@@ -40,6 +40,12 @@ function resolveOrderId(items: CaktoItem[]): string | null {
 
 function resolveKind(item: CaktoItem): "core" | "upsell" | "downsell" | null {
   if (item.offer_type === "main") return "core";
+  // Upsell/downsell nativo da Cakto (página pós-pagamento, 1 clique) já
+  // vem com offer_type explícito.
+  if (item.offer_type === "upsell") return "upsell";
+  if (item.offer_type === "downsell") return "downsell";
+  // Order bump (fallback, caso ainda exista algum configurado): identifica
+  // pelo id da oferta em vez do offer_type (que vem "orderbump" genérico).
   const offerId = item.offer?.id;
   if (offerId && offerId === process.env.CAKTO_UPSELL_OFFER_ID) return "upsell";
   if (offerId && offerId === process.env.CAKTO_DOWNSELL_OFFER_ID) return "downsell";
@@ -89,7 +95,6 @@ export async function POST(req: Request) {
   }
 
   let o = order as Order;
-  let sawCore = false;
 
   try {
     for (const item of items) {
@@ -98,7 +103,6 @@ export async function POST(req: Request) {
 
       if (kind === "core") {
         o = await fulfillCore(o, paymentId);
-        sawCore = true;
       } else if (kind === "upsell") {
         o = await markUpsellPaid(o, paymentId, item.address ?? item.shipping ?? null);
       } else if (kind === "downsell") {
@@ -108,10 +112,12 @@ export async function POST(req: Request) {
       }
     }
 
-    // Todo o pedido (core + bumps) chega junto num evento "Agrupado" só;
-    // uma vez que o core foi pago, o status final é sempre "completed"
-    // (sem etapa de oferta pós-compra — ver decisão B5/B6 do backlog).
-    if (sawCore && o.status !== "completed") {
+    // O upsell/downsell nativo (página pós-pagamento) pode chegar num
+    // webhook SEPARADO, minutos depois do core — não dá pra confiar em "o
+    // core veio nesse mesmo request" (sawCore). Em vez disso, checamos o
+    // estado persistido: se o core já foi pago (agora ou antes), o status
+    // final é sempre "completed", nunca regride pra upsell_paid/downsell_paid.
+    if (o.mp_payment_core_id && o.status !== "completed") {
       await supabaseAdmin()
         .from("orders")
         .update({ status: "completed", updated_at: new Date().toISOString() })
