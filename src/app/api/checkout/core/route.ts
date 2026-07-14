@@ -1,9 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-  createCheckoutPreference,
-  type CheckoutItem,
-} from "@/lib/mercadopago";
-import { getPricing } from "@/lib/pricing";
+import { buildCheckoutUrl } from "@/lib/cakto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { canMutateDraft, type Order } from "@/lib/types";
 import { checkoutCoreSchema } from "@/lib/validations";
@@ -22,14 +18,14 @@ function isDraftComplete(order: Order, photoCount: number) {
   );
 }
 
-/** POST /api/checkout/core — cria Preference Checkout Pro e redireciona. */
+/** POST /api/checkout/core — monta URL de checkout Cakto e redireciona. */
 export async function POST(req: Request) {
   try {
-    if (!process.env.MERCADOPAGO_ACCESS_TOKEN) {
+    if (!process.env.CAKTO_CHECKOUT_URL) {
       return NextResponse.json(
         {
           error:
-            "Mercado Pago não configurado. Defina MERCADOPAGO_ACCESS_TOKEN no .env.local.",
+            "Cakto não configurada. Defina CAKTO_CHECKOUT_URL no .env.local.",
         },
         { status: 503 },
       );
@@ -44,8 +40,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { draftId, buyerEmail, termsAccepted, wantsUpsell, wantsDownsell } =
-      parsed.data;
+    const { draftId, buyerEmail, termsAccepted } = parsed.data;
 
     const { data: order, error } = await supabaseAdmin()
       .from("orders")
@@ -99,47 +94,17 @@ export async function POST(req: Request) {
       );
     }
 
-    const pricing = await getPricing();
-    const items: CheckoutItem[] = [
-      {
-        kind: "core",
-        title: `Nosso Tempo — página de ${ready.name1} & ${ready.name2}`,
-        unitPrice: pricing.priceCoreCents / 100,
-      },
-    ];
-    if (wantsUpsell) {
-      items.push({
-        kind: "upsell",
-        title: `Nosso Tempo — Polaroids PDF (${ready.name1} & ${ready.name2})`,
-        unitPrice: pricing.priceUpsellCents / 100,
-      });
-    }
-    if (wantsDownsell) {
-      items.push({
-        kind: "downsell",
-        title: `Nosso Tempo — Carta PDF (${ready.name1} & ${ready.name2})`,
-        unitPrice: pricing.priceDownsellCents / 100,
-      });
-    }
+    const checkoutUrl = buildCheckoutUrl({ orderId: ready.id, buyerEmail });
 
-    const { preferenceId, initPoint } = await createCheckoutPreference({
-      orderId: ready.id,
-      publicId: ready.public_id,
-      items,
-      buyerEmail,
-    });
+    await supabaseAdmin()
+      .from("orders")
+      .update({
+        status: "pending_payment",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", ready.id);
 
-    const preferenceUpdate: Record<string, unknown> = {
-      status: "pending_payment",
-      mp_preference_core_id: preferenceId,
-      updated_at: new Date().toISOString(),
-    };
-    if (wantsUpsell) preferenceUpdate.mp_preference_upsell_id = preferenceId;
-    if (wantsDownsell) preferenceUpdate.mp_preference_downsell_id = preferenceId;
-
-    await supabaseAdmin().from("orders").update(preferenceUpdate).eq("id", ready.id);
-
-    return NextResponse.json({ initPoint, preferenceId });
+    return NextResponse.json({ checkoutUrl });
   } catch (e) {
     console.error("checkout/core", e);
     return NextResponse.json(

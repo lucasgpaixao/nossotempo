@@ -21,7 +21,6 @@
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
     "lucide-react": "^1.24.0",
-    "mercadopago": "^3.2.0",
     "nanoid": "^5.1.16",
     "next": "16.2.10",
     "qrcode": "^1.5.4",

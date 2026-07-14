@@ -90,8 +90,6 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
   const [terms, setTerms] = useState(false);
-  const [wantsUpsell, setWantsUpsell] = useState(false);
-  const [wantsDownsell, setWantsDownsell] = useState(false);
 
   const [ytQuery, setYtQuery] = useState("");
   const [ytResults, setYtResults] = useState<YtItem[]>([]);
@@ -176,24 +174,20 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
           draftId: draft.id,
           buyerEmail: email,
           termsAccepted: true,
-          wantsUpsell,
-          wantsDownsell,
         }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(j.error ?? "Falha ao iniciar pagamento");
       }
-      if (!j.initPoint) throw new Error("Checkout sem URL de pagamento");
+      if (!j.checkoutUrl) throw new Error("Checkout sem URL de pagamento");
       track("checkout_core");
-      track(wantsUpsell ? "upsell_yes" : "upsell_no");
-      track(wantsDownsell ? "downsell_yes" : "downsell_no");
-      window.location.href = j.initPoint as string;
+      window.location.href = j.checkoutUrl as string;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro no checkout");
       setSaving(false);
     }
-  }, [draft, email, terms, wantsUpsell, wantsDownsell]);
+  }, [draft, email, terms]);
 
   useEffect(() => {
     let cancelled = false;
@@ -734,36 +728,6 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
               />
             </div>
 
-            <div className="space-y-2 rounded-lg border border-wine/15 bg-cream-deep/30 p-3">
-              <p className="text-sm font-medium text-wine-deep">
-                Extras (opcional)
-              </p>
-              <label className="flex items-start gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  checked={wantsUpsell}
-                  onChange={(e) => setWantsUpsell(e.target.checked)}
-                />
-                <span>
-                  Polaroids para imprimir (PDF) —{" "}
-                  {formatBRL(pricing.priceUpsellCents)}
-                </span>
-              </label>
-              <label className="flex items-start gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  checked={wantsDownsell}
-                  onChange={(e) => setWantsDownsell(e.target.checked)}
-                />
-                <span>
-                  Carta personalizada (PDF) —{" "}
-                  {formatBRL(pricing.priceDownsellCents)}
-                </span>
-              </label>
-            </div>
-
             <label className="flex items-start gap-2 text-sm">
               <input
                 type="checkbox"
@@ -784,14 +748,11 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
               </span>
             </label>
             <p className="text-sm text-muted-foreground">
-              Pagamento via Mercado Pago (Pix ou cartão). Total:{" "}
+              Pagamento via Pix ou cartão. Total:{" "}
               <span className="font-medium text-wine-deep">
-                {formatBRL(
-                  pricing.priceCoreCents +
-                    (wantsUpsell ? pricing.priceUpsellCents : 0) +
-                    (wantsDownsell ? pricing.priceDownsellCents : 0),
-                )}
+                {formatBRL(pricing.priceCoreCents)}
               </span>
+              . Polaroids e carta em PDF podem ser adicionadas no pagamento.
             </p>
             <Button
               size="lg"
@@ -799,7 +760,7 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
               disabled={saving || !email || !terms}
               onClick={() => void payCore()}
             >
-              {saving ? "Redirecionando…" : "Pagar com Mercado Pago"}
+              {saving ? "Redirecionando…" : "Pagar"}
             </Button>
           </div>
         )}
