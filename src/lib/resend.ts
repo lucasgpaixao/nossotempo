@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { AddonEmail } from "@/emails/addon";
 import { DeliveryEmail } from "@/emails/delivery";
+import { PhysicalOrderEmail } from "@/emails/physical";
 import { appUrl } from "@/lib/app-url";
 import { getSiteSettings } from "@/lib/pricing";
 import { signedAssetUrl } from "@/lib/pdf";
@@ -114,6 +115,65 @@ export async function sendAddonEmail(
   if (error) {
     console.error("sendAddonEmail", error);
     throw new Error("Falha ao enviar e-mail do extra");
+  }
+
+  return { skipped: false as const };
+}
+
+/** Confirmação pro comprador — sem link, o item físico vai pelo correio. */
+export async function sendPhysicalOrderEmail(order: Order) {
+  const resend = resendClient();
+  if (!resend || !order.buyer_email || !order.name1 || !order.name2) {
+    console.info("[email] skip physical order — missing resend/email/names");
+    return { skipped: true as const };
+  }
+
+  const { error } = await resend.emails.send({
+    from: fromAddress(),
+    to: order.buyer_email,
+    subject: "Nosso Tempo — pedido de polaroids + carta impressas recebido",
+    react: PhysicalOrderEmail({ name1: order.name1, name2: order.name2 }),
+  });
+
+  if (error) {
+    console.error("sendPhysicalOrderEmail", error);
+    throw new Error("Falha ao enviar e-mail de confirmação física");
+  }
+
+  return { skipped: false as const };
+}
+
+/**
+ * Aviso interno pro suporte/admin quando um upsell físico é pago — o
+ * endereço vem bruto do webhook da Cakto (estrutura ainda não confirmada),
+ * então só formatamos como JSON legível em vez de tentar parsear campos.
+ */
+export async function notifyAdminPhysicalOrder(order: Order) {
+  const resend = resendClient();
+  const settings = await getSiteSettings();
+  const to = settings.supportEmail;
+  if (!resend || !to) {
+    console.info("[email] skip admin physical notify — missing resend/supportEmail");
+    return { skipped: true as const };
+  }
+
+  const addressJson = JSON.stringify(order.physical_shipping ?? {}, null, 2);
+
+  const { error } = await resend.emails.send({
+    from: fromAddress(),
+    to,
+    subject: `Novo pedido físico — ${order.name1} & ${order.name2}`,
+    html: `
+      <p>Pedido <strong>${order.id}</strong> comprou o upsell físico (polaroids + carta impressas).</p>
+      <p>Baixe os PDFs no admin (${appUrl()}/admin/pedidos/${order.id}) pra imprimir e postar.</p>
+      <p>Endereço recebido da Cakto:</p>
+      <pre>${addressJson}</pre>
+    `,
+  });
+
+  if (error) {
+    console.error("notifyAdminPhysicalOrder", error);
+    // Não derruba o fulfillment por causa de um aviso interno.
   }
 
   return { skipped: false as const };

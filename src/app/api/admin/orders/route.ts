@@ -57,7 +57,7 @@ export async function GET(req: Request) {
   let query = supabaseAdmin()
     .from("orders")
     .select(
-      "id, public_id, status, buyer_email, name1, name2, created_at, updated_at, mp_payment_core_id, mp_payment_upsell_id, mp_payment_downsell_id",
+      "id, public_id, status, buyer_email, name1, name2, created_at, updated_at, mp_payment_core_id, mp_payment_upsell_id, mp_payment_downsell_id, physical_shipped_at",
     )
     .order("created_at", { ascending: false })
     .limit(100);
@@ -84,6 +84,7 @@ const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("fulfill"), orderId: z.string().uuid() }),
   z.object({ action: z.literal("resend_email"), orderId: z.string().uuid() }),
   z.object({ action: z.literal("regenerate"), orderId: z.string().uuid() }),
+  z.object({ action: z.literal("mark_shipped"), orderId: z.string().uuid() }),
   z.object({
     action: z.literal("update_order"),
     orderId: z.string().uuid(),
@@ -167,6 +168,19 @@ export async function POST(req: Request) {
   if (body.action === "regenerate") {
     const updated = await regenerateAssets(o.id);
     return NextResponse.json({ order: updated });
+  }
+
+  if (body.action === "mark_shipped") {
+    const { data, error } = await supabaseAdmin()
+      .from("orders")
+      .update({ physical_shipped_at: new Date().toISOString() })
+      .eq("id", o.id)
+      .select("*")
+      .single();
+    if (error || !data) {
+      return NextResponse.json({ error: "Falha ao marcar enviado." }, { status: 500 });
+    }
+    return NextResponse.json({ order: data as Order });
   }
 
   if (body.action === "update_order") {

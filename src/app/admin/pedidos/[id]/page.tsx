@@ -20,6 +20,9 @@ type Order = {
   polaroid_pdf_path: string | null;
   letter_pdf_path: string | null;
   edit_token: string | null;
+  mp_payment_upsell_id: string | null;
+  physical_shipping: unknown;
+  physical_shipped_at: string | null;
 };
 
 export default function AdminPedidoPage() {
@@ -195,6 +198,33 @@ export default function AdminPedidoPage() {
           </p>
         ) : null}
       </div>
+
+      {order.mp_payment_upsell_id ? (
+        <div className="space-y-2 rounded-lg border border-wine/15 p-4">
+          <p className="font-medium text-wine-deep">
+            📦 Upsell físico (polaroids + carta impressas)
+          </p>
+          {order.physical_shipped_at ? (
+            <p className="text-sm text-muted-foreground">
+              Enviado em{" "}
+              {new Date(order.physical_shipped_at).toLocaleString("pt-BR")}
+            </p>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Baixe os PDFs acima, imprima e envie pelo correio. Endereço
+                recebido da Cakto:
+              </p>
+              <pre className="overflow-x-auto rounded bg-cream-deep/40 p-3 text-xs">
+                {JSON.stringify(order.physical_shipping ?? {}, null, 2)}
+              </pre>
+              <Button size="sm" onClick={() => void act("mark_shipped")}>
+                Marcar como enviado
+              </Button>
+            </>
+          )}
+        </div>
+      ) : null}
 
       {msg ? <p className="text-sm text-wine">{msg}</p> : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}

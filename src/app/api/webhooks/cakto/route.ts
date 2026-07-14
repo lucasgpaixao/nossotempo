@@ -17,6 +17,10 @@ type CaktoItem = {
   offer?: { id?: string; name?: string };
   offer_type?: string; // "main" | "orderbump"
   sck?: string | null;
+  // Estrutura ainda não confirmada contra um payload real com endereço
+  // preenchido — guardamos o que vier, bruto, pro admin ler manualmente.
+  address?: unknown;
+  shipping?: unknown;
 };
 
 type CaktoBody = {
@@ -96,7 +100,7 @@ export async function POST(req: Request) {
         o = await fulfillCore(o, paymentId);
         sawCore = true;
       } else if (kind === "upsell") {
-        o = await markUpsellPaid(o, paymentId);
+        o = await markUpsellPaid(o, paymentId, item.address ?? item.shipping ?? null);
       } else if (kind === "downsell") {
         o = await markDownsellPaid(o, paymentId);
       } else {

@@ -15,6 +15,8 @@ type Row = {
   name1: string | null;
   name2: string | null;
   created_at: string;
+  mp_payment_upsell_id: string | null;
+  physical_shipped_at: string | null;
 };
 
 const STATUS_OPTIONS = [
@@ -147,6 +149,11 @@ export default function AdminOrdersPage() {
                 <td className="py-2 pr-3 font-mono text-xs">{o.status}</td>
                 <td className="py-2 pr-3">
                   {o.name1 && o.name2 ? `${o.name1} & ${o.name2}` : "—"}
+                  {o.mp_payment_upsell_id && !o.physical_shipped_at ? (
+                    <span className="ml-2 rounded bg-wine/10 px-1.5 py-0.5 text-xs text-wine">
+                      📦 enviar
+                    </span>
+                  ) : null}
                 </td>
                 <td className="py-2 pr-3">{o.buyer_email ?? "—"}</td>
                 <td className="py-2 pr-3 text-muted-foreground">

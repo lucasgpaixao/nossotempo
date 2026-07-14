@@ -33,6 +33,8 @@ export type Order = {
   polaroid_pdf_path: string | null;
   letter_pdf_path: string | null;
   terms_accepted_at: string | null;
+  physical_shipping: unknown;
+  physical_shipped_at: string | null;
   created_at: string;
   updated_at: string;
 };

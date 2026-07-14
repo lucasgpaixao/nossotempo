@@ -1,8 +1,13 @@
 import { track } from "@vercel/analytics/server";
 import { createEditToken } from "@/lib/ids";
 import { appUrl } from "@/lib/app-url";
-import { generateLetterPdf, generatePolaroidPdf, regenerateAssets } from "@/lib/pdf";
-import { sendAddonEmail, sendDeliveryEmail } from "@/lib/resend";
+import { regenerateAssets } from "@/lib/pdf";
+import {
+  notifyAdminPhysicalOrder,
+  sendAddonEmail,
+  sendDeliveryEmail,
+  sendPhysicalOrderEmail,
+} from "@/lib/resend";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { Order } from "@/lib/types";
 
@@ -82,7 +87,18 @@ export async function fulfillCoreManual(order: Order): Promise<Order> {
   return fulfillCore(order, order.mp_payment_core_id ?? `manual-${Date.now()}`);
 }
 
-export async function markUpsellPaid(order: Order, paymentId: string) {
+/**
+ * Upsell = polaroids + carta IMPRESSAS, enviadas pelo correio. Gera os
+ * mesmos PDFs que o downsell (o admin baixa e imprime), mas não manda link
+ * de download pro comprador — só uma confirmação. Endereço vem bruto do
+ * webhook da Cakto (estrutura ainda não normalizada) e fica salvo pro
+ * admin ler manualmente.
+ */
+export async function markUpsellPaid(
+  order: Order,
+  paymentId: string,
+  shipping?: unknown,
+) {
   if (order.mp_payment_upsell_id === String(paymentId)) return order;
 
   const { data, error } = await supabaseAdmin()
@@ -90,22 +106,29 @@ export async function markUpsellPaid(order: Order, paymentId: string) {
     .update({
       status: "upsell_paid",
       mp_payment_upsell_id: String(paymentId),
+      physical_shipping: shipping ?? null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", order.id)
     .select("*")
     .single();
-  if (error || !data) throw new Error("Falha ao marcar upsell");
+  if (error || !data) throw new Error("Falha ao marcar upsell físico");
 
-  let updated = await generatePolaroidPdf(data as Order);
+  const updated = await regenerateAssets((data as Order).id);
   try {
-    await sendAddonEmail(updated, "polaroid");
+    await sendPhysicalOrderEmail(updated);
   } catch (e) {
-    console.error("upsell email", e);
+    console.error("physical order email", e);
+  }
+  try {
+    await notifyAdminPhysicalOrder(updated);
+  } catch (e) {
+    console.error("admin physical notify", e);
   }
   return updated;
 }
 
+/** Downsell = polaroids + carta em PDF, entregues por link de download. */
 export async function markDownsellPaid(order: Order, paymentId: string) {
   if (order.mp_payment_downsell_id === String(paymentId)) return order;
 
@@ -119,13 +142,18 @@ export async function markDownsellPaid(order: Order, paymentId: string) {
     .eq("id", order.id)
     .select("*")
     .single();
-  if (error || !data) throw new Error("Falha ao marcar downsell");
+  if (error || !data) throw new Error("Falha ao marcar downsell digital");
 
-  let updated = await generateLetterPdf(data as Order);
+  const updated = await regenerateAssets((data as Order).id);
+  try {
+    await sendAddonEmail(updated, "polaroid");
+  } catch (e) {
+    console.error("downsell polaroid email", e);
+  }
   try {
     await sendAddonEmail(updated, "letter");
   } catch (e) {
-    console.error("downsell email", e);
+    console.error("downsell letter email", e);
   }
   return updated;
 }

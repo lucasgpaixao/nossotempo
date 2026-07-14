@@ -79,15 +79,23 @@ export async function regenerateAssets(orderId: string): Promise<Order> {
     updated_at: new Date().toISOString(),
   };
 
+  // Upsell (físico) e downsell (digital) são cada um um pacote único com
+  // polaroids + carta juntos — qualquer um dos dois exige gerar os dois PDFs;
+  // a diferença entre eles é só a entrega (admin imprime vs. link de download).
+  const boughtExtra =
+    Boolean(o.mp_payment_upsell_id) || Boolean(o.mp_payment_downsell_id);
+
   const needsPolaroid =
     Boolean(o.polaroid_pdf_path) ||
     o.status === "upsell_paid" ||
-    Boolean(o.mp_payment_upsell_id);
+    o.status === "downsell_paid" ||
+    boughtExtra;
 
   const needsLetter =
     Boolean(o.letter_pdf_path) ||
+    o.status === "upsell_paid" ||
     o.status === "downsell_paid" ||
-    Boolean(o.mp_payment_downsell_id);
+    boughtExtra;
 
   if (needsPolaroid) {
     const photos = await downloadPhotoDataUrls(o.id);
@@ -138,34 +146,6 @@ export async function regenerateAssets(orderId: string): Promise<Order> {
 
   if (updErr || !updated) throw new Error("Falha ao atualizar assets");
   return updated as Order;
-}
-
-export async function generatePolaroidPdf(order: Order): Promise<Order> {
-  const { data, error } = await supabaseAdmin()
-    .from("orders")
-    .update({
-      polaroid_pdf_path: `${order.id}/polaroids.pdf`,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", order.id)
-    .select("*")
-    .single();
-  if (error || !data) throw new Error("Falha ao marcar polaroid");
-  return regenerateAssets(order.id);
-}
-
-export async function generateLetterPdf(order: Order): Promise<Order> {
-  const { data, error } = await supabaseAdmin()
-    .from("orders")
-    .update({
-      letter_pdf_path: `${order.id}/carta.pdf`,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", order.id)
-    .select("*")
-    .single();
-  if (error || !data) throw new Error("Falha ao marcar carta");
-  return regenerateAssets(order.id);
 }
 
 export async function signedAssetUrl(path: string, expiresSec = 3600) {
