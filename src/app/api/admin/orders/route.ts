@@ -53,14 +53,19 @@ export async function GET(req: Request) {
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
   const q = url.searchParams.get("q")?.trim();
+  const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
+  const pageSize = Math.min(
+    100,
+    Math.max(1, Number(url.searchParams.get("pageSize")) || 20),
+  );
 
   let query = supabaseAdmin()
     .from("orders")
     .select(
       "id, public_id, status, buyer_email, name1, name2, created_at, updated_at, mp_payment_core_id, mp_payment_upsell_id, mp_payment_downsell_id, physical_shipped_at",
+      { count: "exact" },
     )
-    .order("created_at", { ascending: false })
-    .limit(100);
+    .order("created_at", { ascending: false });
 
   if (status) query = query.eq("status", status);
   if (from) query = query.gte("created_at", from);
@@ -71,13 +76,21 @@ export async function GET(req: Request) {
     );
   }
 
-  const { data, error } = await query;
+  const start = (page - 1) * pageSize;
+  query = query.range(start, start + pageSize - 1);
+
+  const { data, error, count } = await query;
 
   if (error) {
     return NextResponse.json({ error: "Falha ao listar." }, { status: 500 });
   }
 
-  return NextResponse.json({ orders: data ?? [] });
+  return NextResponse.json({
+    orders: data ?? [],
+    total: count ?? 0,
+    page,
+    pageSize,
+  });
 }
 
 const actionSchema = z.discriminatedUnion("action", [
@@ -85,6 +98,7 @@ const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("resend_email"), orderId: z.string().uuid() }),
   z.object({ action: z.literal("regenerate"), orderId: z.string().uuid() }),
   z.object({ action: z.literal("mark_shipped"), orderId: z.string().uuid() }),
+  z.object({ action: z.literal("delete_order"), orderId: z.string().uuid() }),
   z.object({
     action: z.literal("update_order"),
     orderId: z.string().uuid(),
@@ -181,6 +195,34 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Falha ao marcar enviado." }, { status: 500 });
     }
     return NextResponse.json({ order: data as Order });
+  }
+
+  if (body.action === "delete_order") {
+    const { data: photos } = await supabaseAdmin()
+      .from("order_photos")
+      .select("storage_path")
+      .eq("order_id", o.id);
+    const photoPaths = (photos ?? [])
+      .map((p) => p.storage_path)
+      .filter(Boolean) as string[];
+    if (photoPaths.length) {
+      await supabaseAdmin().storage.from("couple-photos").remove(photoPaths);
+    }
+
+    const assetPaths = [
+      o.qr_storage_path,
+      o.polaroid_pdf_path,
+      o.letter_pdf_path,
+    ].filter(Boolean) as string[];
+    if (assetPaths.length) {
+      await supabaseAdmin().storage.from("order-assets").remove(assetPaths);
+    }
+
+    const { error } = await supabaseAdmin().from("orders").delete().eq("id", o.id);
+    if (error) {
+      return NextResponse.json({ error: "Falha ao apagar." }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
   }
 
   if (body.action === "update_order") {

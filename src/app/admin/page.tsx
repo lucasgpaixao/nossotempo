@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+const PAGE_SIZE = 20;
 
 type Row = {
   id: string;
@@ -39,6 +42,9 @@ export default function AdminOrdersPage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [q, setQ] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = useCallback(
     async (signal: AbortSignal) => {
@@ -47,6 +53,8 @@ export default function AdminOrdersPage() {
       if (from) params.set("from", from);
       if (to) params.set("to", to);
       if (q) params.set("q", q);
+      params.set("page", String(page));
+      params.set("pageSize", String(PAGE_SIZE));
       const res = await fetch(`/api/admin/orders?${params.toString()}`, {
         signal,
       });
@@ -61,9 +69,14 @@ export default function AdminOrdersPage() {
       }
       setError(null);
       setOrders(j.orders ?? []);
+      setTotal(j.total ?? 0);
     },
-    [router, status, from, to, q],
+    [router, status, from, to, q, page],
   );
+
+  useEffect(() => {
+    setPage(1);
+  }, [status, from, to, q]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -78,6 +91,36 @@ export default function AdminOrdersPage() {
       controller.abort();
     };
   }, [load]);
+
+  async function deleteOrder(id: string, label: string) {
+    if (
+      !window.confirm(
+        `Apagar o pedido "${label}" permanentemente? Isso remove o registro e os arquivos (fotos/QR/PDFs). Não pode ser desfeito.`,
+      )
+    ) {
+      return;
+    }
+    setDeletingId(id);
+    try {
+      const res = await fetch("/api/admin/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete_order", orderId: id }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(j.error ?? "Falha ao apagar.");
+        return;
+      }
+      setError(null);
+      const controller = new AbortController();
+      await load(controller.signal);
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div>
@@ -160,9 +203,29 @@ export default function AdminOrdersPage() {
                   {new Date(o.created_at).toLocaleString("pt-BR")}
                 </td>
                 <td className="py-2 text-right">
-                  <Button asChild variant="outline" size="sm">
-                    <Link href={`/admin/pedidos/${o.id}`}>Abrir</Link>
-                  </Button>
+                  <div className="flex justify-end gap-2">
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={`/admin/pedidos/${o.id}`}>Abrir</Link>
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={deletingId !== null}
+                      onClick={() =>
+                        void deleteOrder(
+                          o.id,
+                          o.name1 && o.name2
+                            ? `${o.name1} & ${o.name2}`
+                            : (o.buyer_email ?? o.id),
+                        )
+                      }
+                    >
+                      {deletingId === o.id ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : null}
+                      Apagar
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -172,6 +235,32 @@ export default function AdminOrdersPage() {
           <p className="mt-6 text-muted-foreground">Nenhum pedido ainda.</p>
         ) : null}
       </div>
+
+      {total > 0 ? (
+        <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+          <p>
+            {total} pedido{total === 1 ? "" : "s"} · página {page} de {lastPage}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= lastPage}
+              onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
