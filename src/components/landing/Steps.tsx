@@ -7,7 +7,7 @@ const STEPS = [
   {
     n: "02",
     title: "Pague com Pix ou cartão",
-    body: "Checkout seguro pelo Mercado Pago. Sem criar conta do casal.",
+    body: "Checkout seguro pela Cakto. Sem criar conta do casal.",
   },
   {
     n: "03",

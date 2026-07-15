@@ -28,7 +28,7 @@ export default function TermosPage() {
           removido manualmente.
         </p>
         <p>
-          Pagamentos são processados pelo Mercado Pago. Ao pagar, você declara
+          Pagamentos são processados pela Cakto. Ao pagar, você declara
           ter lido estes Termos e a Política de Privacidade.
         </p>
       </div>

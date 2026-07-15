@@ -17,9 +17,9 @@ export type SiteSettings = Pricing & {
 };
 
 const DEFAULTS: SiteSettings = {
-  priceCoreCents: 100,
-  priceUpsellCents: 50,
-  priceDownsellCents: 30,
+  priceCoreCents: 3700,
+  priceUpsellCents: 4900,
+  priceDownsellCents: 900,
   bannerEnabled: false,
   bannerText: null,
   bannerTargetAt: null,

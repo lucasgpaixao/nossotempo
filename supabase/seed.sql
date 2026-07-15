@@ -9,9 +9,9 @@ insert into site_settings (
   support_whatsapp
 ) values (
   1,
-  2990,
-  1990,
-  990,
+  3700,
+  4900,
+  900,
   false,
   null,
   null

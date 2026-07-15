@@ -37,7 +37,7 @@ export default async function SucessoPage({ params, searchParams }: Props) {
           Pagamento em análise
         </h1>
         <p className="mt-3 text-muted-foreground">
-          Assim que o Mercado Pago confirmar, esta página libera o link e o QR.
+          Assim que a Cakto confirmar, esta página libera o link e o QR.
           Atualize em alguns instantes.
         </p>
         <Button asChild className="mt-8 bg-wine text-cream hover:bg-wine-deep">

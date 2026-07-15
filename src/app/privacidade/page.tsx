@@ -16,7 +16,7 @@ export default function PrivacidadePage() {
           são apagados após 7 dias.
         </p>
         <p>
-          Pagamentos são processados pelo Mercado Pago. Não armazenamos dados
+          Pagamentos são processados pela Cakto. Não armazenamos dados
           completos de cartão.
         </p>
         <p>
