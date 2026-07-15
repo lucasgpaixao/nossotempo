@@ -568,7 +568,7 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
               <span className="font-medium text-wine-deep">
                 {formatBRL(pricing.priceCoreCents)}
               </span>
-              . Polaroids e carta em PDF podem ser adicionadas no pagamento.
+              .
             </p>
             <Button
               size="lg"
