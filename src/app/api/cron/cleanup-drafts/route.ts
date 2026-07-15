@@ -6,7 +6,11 @@ export const runtime = "nodejs";
 /**
  * GET /api/cron/cleanup-drafts
  * Protegido por CRON_SECRET (Authorization: Bearer … ou ?secret=).
- * Apaga drafts com mais de 7 dias + arquivos no Storage.
+ * Apaga pedidos abandonados antes de pagar (nunca chegaram a `core_paid`)
+ * com mais de 7 dias + arquivos no Storage. O wizard não cria mais pedidos
+ * em `draft` — o estado "abandonado" hoje é `pending_payment` (checkout
+ * criado mas nunca aprovado). `draft` continua na varredura por segurança
+ * (linhas antigas que sobraram de antes dessa mudança).
  */
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -27,7 +31,7 @@ export async function GET(req: Request) {
   const { data: drafts, error } = await supabaseAdmin()
     .from("orders")
     .select("id")
-    .eq("status", "draft")
+    .in("status", ["draft", "pending_payment"])
     .lt("created_at", cutoff.toISOString());
 
   if (error) {

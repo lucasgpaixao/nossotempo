@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { track } from "@vercel/analytics";
 import { ImagePlus, Loader2 } from "lucide-react";
@@ -16,6 +15,8 @@ import type { Pricing } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
 const MAX_PHOTOS = 6;
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 const STEPS = [
   "Nomes",
@@ -27,20 +28,7 @@ const STEPS = [
   "Pagar",
 ] as const;
 
-type Draft = {
-  id: string;
-  public_id: string;
-  name1: string | null;
-  name2: string | null;
-  started_at: string | null;
-  message: string | null;
-  youtube_video_id: string | null;
-  youtube_title: string | null;
-  youtube_thumbnail: string | null;
-  buyer_email: string | null;
-};
-
-type Photo = { id: string; storage_path: string; sort_order: number };
+type LocalPhoto = { file: File; previewUrl: string };
 
 type YtItem = {
   videoId: string;
@@ -49,44 +37,16 @@ type YtItem = {
   channelTitle: string;
 };
 
-function splitStartedAt(iso: string | null) {
-  if (!iso) return { date: "", time: "" };
-  const d = new Date(iso);
-  const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  });
-  const parts = Object.fromEntries(
-    fmt.formatToParts(d).map((p) => [p.type, p.value]),
-  );
-  return {
-    date: `${parts.year}-${parts.month}-${parts.day}`,
-    time: `${parts.hour}:${parts.minute}`,
-  };
-}
-
 export default function CriarWizard({ pricing }: { pricing: Pricing }) {
-  const router = useRouter();
-  const search = useSearchParams();
-  const draftParam = search.get("draft");
-  const payFailed = search.get("pay") === "failed";
-
   const [step, setStep] = useState(0);
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [photos, setPhotos] = useState<Photo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [name1, setName1] = useState("");
   const [name2, setName2] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
+  const [photos, setPhotos] = useState<LocalPhoto[]>([]);
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
   const [terms, setTerms] = useState(false);
@@ -99,149 +59,19 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
     title: string;
     thumbnail: string;
   } | null>(null);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const patchDraft = useCallback(
-    async (body: Record<string, unknown>) => {
-      if (!draft) return;
-      setSaving(true);
-      try {
-        const res = await fetch(`/api/drafts/${draft.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) {
-          const j = await res.json().catch(() => ({}));
-          throw new Error(j.error ?? "Falha ao salvar");
-        }
-        const j = await res.json();
-        setDraft(j.draft);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Erro ao salvar");
-      } finally {
-        setSaving(false);
-      }
-    },
-    [draft],
-  );
-
-  const debouncedPatch = useCallback(
-    (body: Record<string, unknown>) => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        void patchDraft(body);
-      }, 400);
-    },
-    [patchDraft],
-  );
-
   useEffect(() => {
-    if (payFailed) {
-      setStep(6);
-      setError(
-        "Pagamento não concluído. Você pode tentar de novo quando quiser.",
-      );
-    }
-  }, [payFailed]);
+    track("wizard_start");
+  }, []);
 
-  const payCore = useCallback(async () => {
-    if (!draft) return;
-    if (!email || !terms) {
-      setError("Informe o e-mail e aceite os termos.");
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    try {
-      const patchRes = await fetch(`/api/drafts/${draft.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ buyerEmail: email, termsAccepted: true }),
-      });
-      if (!patchRes.ok) {
-        const j = await patchRes.json().catch(() => ({}));
-        throw new Error(j.error ?? "Falha ao salvar e-mail");
-      }
-
-      const res = await fetch("/api/checkout/core", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          draftId: draft.id,
-          buyerEmail: email,
-          termsAccepted: true,
-        }),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(j.error ?? "Falha ao iniciar pagamento");
-      }
-      if (!j.checkoutUrl) throw new Error("Checkout sem URL de pagamento");
-      track("checkout_core");
-      window.location.href = j.checkoutUrl as string;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro no checkout");
-      setSaving(false);
-    }
-  }, [draft, email, terms]);
-
+  // Revoga os object URLs das fotos ao desmontar, pra não vazar memória.
   useEffect(() => {
-    let cancelled = false;
-    async function boot() {
-      setLoading(true);
-      setError(null);
-      try {
-        if (draftParam) {
-          const res = await fetch(`/api/drafts/${draftParam}`);
-          if (!res.ok) throw new Error("Rascunho não encontrado");
-          const j = await res.json();
-          if (cancelled) return;
-          setDraft(j.draft);
-          setPhotos(j.photos ?? []);
-          setName1(j.draft.name1 ?? "");
-          setName2(j.draft.name2 ?? "");
-          const st = splitStartedAt(j.draft.started_at);
-          setDate(st.date);
-          setTime(st.time === "00:00" ? "" : st.time);
-          setMessage(j.draft.message ?? "");
-          setEmail(j.draft.buyer_email ?? "");
-          if (j.draft.youtube_video_id) {
-            setYtSelected({
-              videoId: j.draft.youtube_video_id,
-              title: j.draft.youtube_title ?? "",
-              thumbnail: j.draft.youtube_thumbnail ?? "",
-            });
-          }
-        } else {
-          const res = await fetch("/api/drafts", { method: "POST" });
-          if (!res.ok) {
-            const j = await res.json().catch(() => ({}));
-            throw new Error(j.error ?? "Não foi possível criar o rascunho");
-          }
-          const j = await res.json();
-          if (cancelled) return;
-          setDraft(j.draft);
-          track("wizard_start");
-          router.replace(`/criar?draft=${j.draft.id}`);
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Erro ao iniciar");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    void boot();
     return () => {
-      cancelled = true;
+      for (const p of photos) URL.revokeObjectURL(p.previewUrl);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftParam]);
+  }, []);
 
   useEffect(() => {
     if (ytQuery.trim().length < 2) {
@@ -281,67 +111,49 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
       title: j.title ?? item.title,
       thumbnail: j.thumbnail ?? item.thumbnail,
     });
-    await patchDraft({
-      youtubeVideoId: item.videoId,
-      youtubeTitle: j.title ?? item.title,
-      youtubeThumbnail: j.thumbnail ?? item.thumbnail,
-    });
   }
 
-  async function clearMusic() {
+  function clearMusic() {
     setYtSelected(null);
-    await patchDraft({
-      youtubeVideoId: null,
-      youtubeTitle: null,
-      youtubeThumbnail: null,
-    });
   }
 
-  async function uploadPhotos(files: File[]) {
-    if (!draft || files.length === 0) return;
+  function addPhotos(files: File[]) {
     const remaining = MAX_PHOTOS - photos.length;
-    const toUpload = files.slice(0, remaining);
-    const skipped = files.length - toUpload.length;
+    const candidates = files.slice(0, remaining);
+    const skipped = files.length - candidates.length;
 
-    setUploadingPhoto(true);
-    setError(
-      skipped > 0
-        ? `Só cabem mais ${remaining} foto(s); ${skipped} não foi(ram) enviada(s).`
-        : null,
-    );
-    try {
-      for (const file of toUpload) {
-        const fd = new FormData();
-        fd.set("file", file);
-        const res = await fetch(`/api/drafts/${draft.id}/photos`, {
-          method: "POST",
-          body: fd,
-        });
-        const j = await res.json();
-        if (!res.ok) {
-          setError(j.error ?? "Falha no upload");
-          return;
-        }
-        setPhotos((p) => [...p, j.photo]);
+    const accepted: LocalPhoto[] = [];
+    const rejected: string[] = [];
+    for (const file of candidates) {
+      if (!ALLOWED_PHOTO_TYPES.has(file.type)) {
+        rejected.push(`${file.name}: use JPG, PNG ou WebP`);
+        continue;
       }
-    } catch {
-      setError("Falha ao enviar as fotos. Tente de novo.");
-    } finally {
-      setUploadingPhoto(false);
+      if (file.size > MAX_PHOTO_BYTES) {
+        rejected.push(`${file.name}: maior que 5 MB`);
+        continue;
+      }
+      accepted.push({ file, previewUrl: URL.createObjectURL(file) });
+    }
+
+    if (accepted.length) setPhotos((p) => [...p, ...accepted]);
+
+    if (skipped > 0 || rejected.length) {
+      const parts = [];
+      if (skipped > 0) parts.push(`só cabem mais ${remaining} foto(s)`);
+      if (rejected.length) parts.push(rejected.join("; "));
+      setError(parts.join(" · "));
+    } else {
+      setError(null);
     }
   }
 
-  async function removePhoto(photoId: string) {
-    if (!draft) return;
-    const res = await fetch(
-      `/api/drafts/${draft.id}/photos?photoId=${photoId}`,
-      { method: "DELETE" },
-    );
-    if (!res.ok) {
-      setError("Não foi possível remover a foto");
-      return;
-    }
-    setPhotos((p) => p.filter((x) => x.id !== photoId));
+  function removePhoto(index: number) {
+    setPhotos((p) => {
+      const target = p[index];
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return p.filter((_, i) => i !== index);
+    });
   }
 
   function validateStep(): string | null {
@@ -365,53 +177,71 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
     return null;
   }
 
-  async function next() {
+  function next() {
     const err = validateStep();
     if (err) {
       setError(err);
       return;
     }
     setError(null);
-
-    if (step === 0) await patchDraft({ name1, name2 });
-    if (step === 1) {
-      await patchDraft({
-        startedDate: date,
-        startedTime: time || null,
-      });
-    }
-    if (step === 3) await patchDraft({ message });
-
     if (step < STEPS.length - 1) setStep((s) => s + 1);
   }
 
+  async function submit() {
+    const err = validateStep();
+    if (err) {
+      setError(err);
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.set("name1", name1);
+      fd.set("name2", name2);
+      fd.set("startedDate", date);
+      if (time) fd.set("startedTime", time);
+      fd.set("message", message);
+      fd.set("buyerEmail", email);
+      fd.set("termsAccepted", "true");
+      if (ytSelected) {
+        fd.set("youtubeVideoId", ytSelected.videoId);
+        fd.set("youtubeTitle", ytSelected.title);
+        fd.set("youtubeThumbnail", ytSelected.thumbnail);
+      }
+      for (const p of photos) fd.append("photos", p.file);
+
+      const res = await fetch("/api/checkout/core", {
+        method: "POST",
+        body: fd,
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(j.error ?? "Falha ao iniciar pagamento");
+      }
+      if (!j.checkoutUrl) throw new Error("Checkout sem URL de pagamento");
+      track("checkout_core");
+      window.location.href = j.checkoutUrl as string;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro no checkout");
+      setSubmitting(false);
+    }
+  }
+
   const previewData = useMemo(() => {
-    const started =
-      draft?.started_at ??
-      (date
-        ? new Date(`${date}T${time || "00:00"}:00-03:00`).toISOString()
-        : new Date().toISOString());
+    const started = date
+      ? new Date(`${date}T${time || "00:00"}:00-03:00`).toISOString()
+      : new Date().toISOString();
     return {
       name1: name1 || "Nome 1",
       name2: name2 || "Nome 2",
       startedAt: started,
       message: message || "Sua mensagem aparece aqui.",
-      photos: photos.map((p) => ({
-        src: `/api/drafts/${draft?.id}/photos/signed?path=${encodeURIComponent(p.storage_path)}`,
-        alt: "Foto",
-      })),
+      photos: photos.map((p) => ({ src: p.previewUrl, alt: "Foto" })),
       youtubeVideoId: ytSelected?.videoId,
       youtubeTitle: ytSelected?.title,
     };
-  }, [draft, name1, name2, date, time, message, photos, ytSelected]);
-
-  if (loading) {
-    return (
-      <main className="flex min-h-full flex-1 items-center justify-center bg-background">
-        <p className="text-muted-foreground">Preparando seu presente…</p>
-      </main>
-    );
-  }
+  }, [name1, name2, date, time, message, photos, ytSelected]);
 
   return (
     <main className="min-h-full flex-1 bg-background">
@@ -420,9 +250,6 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
           <Link href="/" className="font-heading text-lg font-semibold text-wine">
             Nosso Tempo
           </Link>
-          <span className="text-xs text-muted-foreground">
-            {saving ? "Salvando…" : "Rascunho salvo"}
-          </span>
         </div>
 
         <div className="mb-8">
@@ -459,7 +286,6 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
                 onChange={(e) => {
                   setName1(e.target.value);
                   setError(null);
-                  debouncedPatch({ name1: e.target.value, name2 });
                 }}
                 placeholder="Ex.: Ana"
               />
@@ -472,7 +298,6 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
                 onChange={(e) => {
                   setName2(e.target.value);
                   setError(null);
-                  debouncedPatch({ name1, name2: e.target.value });
                 }}
                 placeholder="Ex.: Bruno"
               />
@@ -521,65 +346,58 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
               accept="image/jpeg,image/png,image/webp"
               multiple
               className="sr-only"
-              disabled={photos.length >= MAX_PHOTOS || uploadingPhoto}
+              disabled={photos.length >= MAX_PHOTOS}
               onChange={(e) => {
                 const files = Array.from(e.target.files ?? []);
-                if (files.length) void uploadPhotos(files);
+                if (files.length) addPhotos(files);
                 e.target.value = "";
               }}
             />
             <button
               type="button"
-              disabled={photos.length >= MAX_PHOTOS || uploadingPhoto}
+              disabled={photos.length >= MAX_PHOTOS}
               onClick={() => photoInputRef.current?.click()}
               className={cn(
                 "flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors",
-                photos.length >= MAX_PHOTOS || uploadingPhoto
+                photos.length >= MAX_PHOTOS
                   ? "cursor-not-allowed border-wine/15 bg-cream-deep/40 text-muted-foreground"
                   : "border-wine/45 bg-wine/5 text-wine-deep hover:border-wine hover:bg-wine/10",
               )}
             >
-              {uploadingPhoto ? (
-                <>
-                  <Loader2
-                    className="size-8 animate-spin text-wine"
-                    aria-hidden
-                  />
-                  <span className="text-sm font-medium text-wine-deep">
-                    Enviando fotos…
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="flex size-12 items-center justify-center rounded-full bg-wine text-cream shadow-sm">
-                    <ImagePlus className="size-6" aria-hidden />
-                  </span>
-                  <span className="text-base font-semibold">
-                    {photos.length >= MAX_PHOTOS
-                      ? `Limite de ${MAX_PHOTOS} fotos atingido`
-                      : "Escolher fotos"}
-                  </span>
-                  {photos.length < MAX_PHOTOS ? (
-                    <span className="text-sm text-muted-foreground">
-                      Toque aqui para selecionar uma ou mais imagens
-                    </span>
-                  ) : null}
-                </>
-              )}
+              <span className="flex size-12 items-center justify-center rounded-full bg-wine text-cream shadow-sm">
+                <ImagePlus className="size-6" aria-hidden />
+              </span>
+              <span className="text-base font-semibold">
+                {photos.length >= MAX_PHOTOS
+                  ? `Limite de ${MAX_PHOTOS} fotos atingido`
+                  : "Escolher fotos"}
+              </span>
+              {photos.length < MAX_PHOTOS ? (
+                <span className="text-sm text-muted-foreground">
+                  Toque aqui para selecionar uma ou mais imagens
+                </span>
+              ) : null}
             </button>
             <ul className="space-y-2">
               {photos.map((p, i) => (
                 <li
-                  key={p.id}
+                  key={p.previewUrl}
                   className="flex items-center justify-between rounded-md bg-cream-deep/60 px-3 py-2 text-sm"
                 >
-                  <span className="truncate">Foto {i + 1}</span>
+                  <span className="flex items-center gap-2 truncate">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={p.previewUrl}
+                      alt=""
+                      className="size-8 rounded object-cover"
+                    />
+                    Foto {i + 1}
+                  </span>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    disabled={uploadingPhoto}
-                    onClick={() => void removePhoto(p.id)}
+                    onClick={() => removePhoto(i)}
                   >
                     Remover
                   </Button>
@@ -606,7 +424,6 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
                     onClick={() => {
                       setMessage(t.text);
                       setError(null);
-                      debouncedPatch({ message: t.text });
                     }}
                     className="rounded-full border border-wine/30 bg-wine/5 px-3 py-1 text-xs font-medium text-wine-deep transition-colors hover:border-wine hover:bg-wine/10"
                   >
@@ -622,7 +439,6 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
               onChange={(e) => {
                 setMessage(e.target.value);
                 setError(null);
-                debouncedPatch({ message: e.target.value });
               }}
               placeholder="Escreva o que quiser eternizar…"
             />
@@ -658,7 +474,7 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
                     type="button"
                     variant="link"
                     className="h-auto p-0 text-wine"
-                    onClick={() => void clearMusic()}
+                    onClick={clearMusic}
                   >
                     Remover
                   </Button>
@@ -757,10 +573,16 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
             <Button
               size="lg"
               className="w-full bg-wine text-cream hover:bg-wine-deep"
-              disabled={saving || !email || !terms}
-              onClick={() => void payCore()}
+              disabled={submitting || !email || !terms}
+              onClick={() => void submit()}
             >
-              {saving ? "Redirecionando…" : "Pagar"}
+              {submitting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" /> Enviando…
+                </>
+              ) : (
+                "Pagar"
+              )}
             </Button>
           </div>
         )}
@@ -781,8 +603,7 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
             <Button
               type="button"
               className="bg-wine text-cream hover:bg-wine-deep"
-              disabled={saving || uploadingPhoto}
-              onClick={() => void next()}
+              onClick={next}
             >
               Continuar
             </Button>

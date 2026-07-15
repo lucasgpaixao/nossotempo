@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
-import sharp from "sharp";
 import { canMutateDraft, isPubliclyVisible, type Order } from "@/lib/types";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { MAX_PHOTOS, processAndUploadPhoto, validatePhotoFile } from "@/lib/photos";
 
 export const runtime = "nodejs";
-
-const MAX_BYTES = 5 * 1024 * 1024;
-const MAX_PHOTOS = 6;
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -73,63 +69,18 @@ export async function POST(req: Request, ctx: Ctx) {
       );
     }
 
-    if (!ALLOWED.has(file.type)) {
-      return NextResponse.json(
-        { error: "Use JPG, PNG ou WebP." },
-        { status: 400 },
-      );
+    const validationError = validatePhotoFile(file);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
     }
-    if (file.size > MAX_BYTES) {
-      return NextResponse.json(
-        { error: "Arquivo maior que 5 MB." },
-        { status: 400 },
-      );
-    }
-
-    const input = Buffer.from(await file.arrayBuffer());
-    const resized = await sharp(input)
-      .rotate()
-      .resize({
-        width: 1600,
-        height: 1600,
-        fit: "inside",
-        withoutEnlargement: true,
-      })
-      .webp({ quality: 82 })
-      .toBuffer();
 
     const sortOrder = count ?? 0;
-    const storagePath = `${id}/${crypto.randomUUID()}.webp`;
-
-    const { error: upErr } = await supabaseAdmin()
-      .storage.from("couple-photos")
-      .upload(storagePath, new Uint8Array(resized), {
-        contentType: "image/webp",
-        upsert: false,
-      });
-
-    if (upErr) {
-      console.error("photo upload", upErr);
-      return NextResponse.json(
-        { error: "Falha no upload." },
-        { status: 500 },
-      );
-    }
-
-    const { data: photo, error: dbErr } = await supabaseAdmin()
-      .from("order_photos")
-      .insert({
-        order_id: id,
-        storage_path: storagePath,
-        sort_order: sortOrder,
-      })
-      .select("id, storage_path, sort_order")
-      .single();
-
-    if (dbErr) {
-      console.error("photo row", dbErr);
-      await supabaseAdmin().storage.from("couple-photos").remove([storagePath]);
-      return NextResponse.json({ error: "Falha ao gravar foto." }, { status: 500 });
+    let photo;
+    try {
+      photo = await processAndUploadPhoto(id, file, sortOrder);
+    } catch (e) {
+      console.error("photo upload", e);
+      return NextResponse.json({ error: "Falha no upload." }, { status: 500 });
     }
 
     await supabaseAdmin()

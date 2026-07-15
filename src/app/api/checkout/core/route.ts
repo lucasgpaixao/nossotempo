@@ -1,24 +1,24 @@
 import { NextResponse } from "next/server";
 import { buildCheckoutUrl } from "@/lib/cakto";
+import { startedAtFromParts } from "@/lib/drafts";
+import { createPublicId } from "@/lib/ids";
+import { MAX_PHOTOS, processAndUploadPhoto, validatePhotoFile } from "@/lib/photos";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { canMutateDraft, type Order } from "@/lib/types";
-import { checkoutCoreSchema } from "@/lib/validations";
+import { checkoutSubmitSchema } from "@/lib/validations";
 
 export const runtime = "nodejs";
 
-function isDraftComplete(order: Order, photoCount: number) {
-  return Boolean(
-    order.name1 &&
-      order.name2 &&
-      order.started_at &&
-      order.message &&
-      photoCount >= 1 &&
-      order.buyer_email &&
-      order.terms_accepted_at,
-  );
+function formValue(form: FormData, key: string): string | undefined {
+  const v = form.get(key);
+  return typeof v === "string" && v.length > 0 ? v : undefined;
 }
 
-/** POST /api/checkout/core — monta URL de checkout Cakto e redireciona. */
+/**
+ * POST /api/checkout/core — cria o pedido (nunca em status "draft", direto
+ * em "pending_payment"), sobe as fotos e monta a URL de checkout Cakto.
+ * Único ponto de contato do wizard com o backend: até aqui, tudo vive só
+ * no estado do navegador.
+ */
 export async function POST(req: Request) {
   try {
     if (!process.env.CAKTO_CHECKOUT_URL) {
@@ -31,78 +31,95 @@ export async function POST(req: Request) {
       );
     }
 
-    const body = await req.json();
-    const parsed = checkoutCoreSchema.safeParse(body);
+    const form = await req.formData();
+
+    const fields = {
+      name1: formValue(form, "name1"),
+      name2: formValue(form, "name2"),
+      startedDate: formValue(form, "startedDate"),
+      startedTime: formValue(form, "startedTime"),
+      message: formValue(form, "message"),
+      youtubeVideoId: formValue(form, "youtubeVideoId"),
+      youtubeTitle: formValue(form, "youtubeTitle"),
+      youtubeThumbnail: formValue(form, "youtubeThumbnail"),
+      buyerEmail: formValue(form, "buyerEmail"),
+      termsAccepted: formValue(form, "termsAccepted") === "true",
+    };
+
+    const parsed = checkoutSubmitSchema.safeParse(fields);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Dados inválidos.", details: parsed.error.flatten() },
+        { error: "Complete todas as etapas antes de pagar.", details: parsed.error.flatten() },
         { status: 400 },
       );
     }
 
-    const { draftId, buyerEmail, termsAccepted } = parsed.data;
-
-    const { data: order, error } = await supabaseAdmin()
-      .from("orders")
-      .select("*")
-      .eq("id", draftId)
-      .maybeSingle();
-
-    if (error || !order) {
-      return NextResponse.json({ error: "Rascunho não encontrado." }, { status: 404 });
+    const photoFiles = form.getAll("photos").filter((f): f is File => f instanceof File);
+    if (photoFiles.length < 1) {
+      return NextResponse.json({ error: "Envie pelo menos 1 foto." }, { status: 400 });
     }
-
-    const o = order as Order;
-    if (!canMutateDraft(o.status)) {
+    if (photoFiles.length > MAX_PHOTOS) {
       return NextResponse.json(
-        { error: "Este pedido já foi pago ou não pode mais ser cobrado." },
-        { status: 409 },
+        { error: `Máximo de ${MAX_PHOTOS} fotos.` },
+        { status: 400 },
       );
     }
+    for (const file of photoFiles) {
+      const err = validatePhotoFile(file);
+      if (err) return NextResponse.json({ error: err }, { status: 400 });
+    }
 
-    const { count } = await supabaseAdmin()
-      .from("order_photos")
-      .select("id", { count: "exact", head: true })
-      .eq("order_id", draftId);
+    const data = parsed.data;
+    const startedAt = startedAtFromParts(data.startedDate, data.startedTime ?? null);
+    const publicId = createPublicId();
 
-    // Persiste e-mail + termos antes de cobrar
-    const { data: updated, error: updErr } = await supabaseAdmin()
+    const { data: order, error: insertErr } = await supabaseAdmin()
       .from("orders")
-      .update({
-        buyer_email: buyerEmail,
-        terms_accepted_at: termsAccepted
-          ? new Date().toISOString()
-          : o.terms_accepted_at,
-        updated_at: new Date().toISOString(),
+      .insert({
+        public_id: publicId,
+        status: "pending_payment",
+        name1: data.name1,
+        name2: data.name2,
+        message: data.message,
+        started_at: startedAt,
+        buyer_email: data.buyerEmail,
+        terms_accepted_at: new Date().toISOString(),
+        youtube_video_id: data.youtubeVideoId ?? null,
+        youtube_title: data.youtubeTitle ?? null,
+        youtube_thumbnail: data.youtubeThumbnail ?? null,
       })
-      .eq("id", draftId)
-      .select("*")
+      .select("id")
       .single();
 
-    if (updErr || !updated) {
-      return NextResponse.json({ error: "Falha ao salvar e-mail." }, { status: 500 });
+    if (insertErr || !order) {
+      console.error("checkout order create", insertErr);
+      return NextResponse.json({ error: "Falha ao criar pedido." }, { status: 500 });
     }
 
-    const ready = updated as Order;
-    if (!isDraftComplete(ready, count ?? 0)) {
+    const orderId = order.id as string;
+
+    try {
+      for (let i = 0; i < photoFiles.length; i++) {
+        await processAndUploadPhoto(orderId, photoFiles[i], i);
+      }
+    } catch (e) {
+      console.error("checkout photo upload", e);
+      const { data: photos } = await supabaseAdmin()
+        .from("order_photos")
+        .select("storage_path")
+        .eq("order_id", orderId);
+      const paths = (photos ?? []).map((p) => p.storage_path as string);
+      if (paths.length) {
+        await supabaseAdmin().storage.from("couple-photos").remove(paths);
+      }
+      await supabaseAdmin().from("orders").delete().eq("id", orderId);
       return NextResponse.json(
-        {
-          error:
-            "Complete nomes, data, pelo menos 1 foto, mensagem, e-mail e termos antes de pagar.",
-        },
-        { status: 400 },
+        { error: "Falha ao enviar as fotos. Tente de novo." },
+        { status: 500 },
       );
     }
 
-    const checkoutUrl = buildCheckoutUrl({ orderId: ready.id, buyerEmail });
-
-    await supabaseAdmin()
-      .from("orders")
-      .update({
-        status: "pending_payment",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", ready.id);
+    const checkoutUrl = buildCheckoutUrl({ orderId, buyerEmail: data.buyerEmail });
 
     return NextResponse.json({ checkoutUrl });
   } catch (e) {
