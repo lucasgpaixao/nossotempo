@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CouplePageView } from "@/components/couple-page/CouplePageView";
+import { Logo } from "@/components/Logo";
 import { formatBRL } from "@/lib/format";
 import { MESSAGE_TEMPLATES } from "@/lib/message-templates";
 import type { Pricing } from "@/lib/pricing";
@@ -247,8 +248,8 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
     <main className="min-h-full flex-1 bg-background">
       <div className="mx-auto w-full max-w-lg px-5 py-6">
         <div className="mb-6 flex items-center justify-between">
-          <Link href="/" className="font-heading text-lg font-semibold text-wine">
-            Nosso Tempo
+          <Link href="/">
+            <Logo height={32} />
           </Link>
         </div>
 

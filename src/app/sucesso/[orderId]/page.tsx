@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { LogoIcon } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { appUrl } from "@/lib/app-url";
 import { formatBRL, getPricing } from "@/lib/pricing";
@@ -69,7 +70,8 @@ export default async function SucessoPage({ params, searchParams }: Props) {
         className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_#fffaf5_0%,_#f7f0e8_50%,_#ebe0d2_100%)]"
       />
 
-      <p className="text-center text-xs uppercase tracking-[0.25em] text-wine/55">
+      <p className="flex items-center justify-center gap-1.5 text-center text-xs uppercase tracking-[0.25em] text-wine/55">
+        <LogoIcon size={16} />
         Nosso Tempo
       </p>
       <h1 className="font-heading mt-3 text-center text-3xl font-semibold text-wine-deep">

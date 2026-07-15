@@ -1,11 +1,11 @@
-import { Body, Container, Head, Heading, Html, Preview, Text } from "@react-email/components";
+import { Body, Container, Head, Heading, Html, Img, Preview, Text } from "@react-email/components";
+import { appUrl } from "@/lib/app-url";
 
 type PhysicalOrderEmailProps = {
   name1: string;
   name2: string;
 };
 
-const wine = "#6b1e36";
 const wineDeep = "#4a1425";
 const cream = "#f7f0e8";
 
@@ -16,17 +16,13 @@ export function PhysicalOrderEmail({ name1, name2 }: PhysicalOrderEmailProps) {
       <Preview>Recebemos seu pedido de polaroids + carta impressas</Preview>
       <Body style={{ backgroundColor: cream, fontFamily: "Georgia, serif" }}>
         <Container style={{ padding: "32px", color: "#2a1520" }}>
-          <Text
-            style={{
-              letterSpacing: "3px",
-              color: wine,
-              fontSize: "12px",
-              textAlign: "center",
-              textTransform: "uppercase",
-            }}
-          >
-            Nosso Tempo
-          </Text>
+          <Img
+            src={`${appUrl()}/brand/icon-512.png`}
+            alt="Nosso Tempo"
+            width={48}
+            height={48}
+            style={{ display: "block", margin: "0 auto 8px" }}
+          />
           <Heading
             as="h1"
             style={{ textAlign: "center", color: wineDeep, fontSize: "24px" }}

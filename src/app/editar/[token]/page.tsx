@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CouplePageView } from "@/components/couple-page/CouplePageView";
+import { LogoIcon } from "@/components/Logo";
 import { cn } from "@/lib/utils";
 
 const MAX_PHOTOS = 6;
@@ -215,7 +216,8 @@ export default function EditarClient() {
 
   return (
     <main className="mx-auto w-full max-w-lg px-6 py-10">
-      <p className="text-xs uppercase tracking-[0.25em] text-wine/55">
+      <p className="flex items-center gap-1.5 text-xs uppercase tracking-[0.25em] text-wine/55">
+        <LogoIcon size={16} />
         Nosso Tempo · Edição
       </p>
       <h1 className="font-heading mt-2 text-3xl font-semibold text-wine-deep">

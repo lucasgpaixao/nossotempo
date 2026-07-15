@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 import { buttonVariants } from "@/components/ui/button";
 import { CtaPrice } from "@/components/landing/CtaPrice";
 import { Faq } from "@/components/landing/Faq";
@@ -35,9 +36,7 @@ export default async function HomePage() {
       ) : null}
 
       <header className="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-6">
-        <p className="font-heading text-xl font-semibold tracking-tight text-wine">
-          Nosso Tempo
-        </p>
+        <Logo height={40} priority />
         <a
           href="/criar"
           className={cn(
@@ -84,10 +83,8 @@ export default async function HomePage() {
         <footer className="border-t border-wine/10 px-6 py-10">
           <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="font-heading text-lg font-semibold text-wine">
-                Nosso Tempo
-              </p>
-              <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+              <Logo height={32} />
+              <p className="mt-2 max-w-xs text-sm text-muted-foreground">
                 Presente digital com página eterna, QR e extras para imprimir.
               </p>
             </div>

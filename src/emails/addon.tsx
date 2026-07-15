@@ -5,9 +5,11 @@ import {
   Head,
   Heading,
   Html,
+  Img,
   Preview,
   Text,
 } from "@react-email/components";
+import { appUrl } from "@/lib/app-url";
 
 type AddonEmailProps = {
   label: "Polaroids" | "Carta";
@@ -25,17 +27,13 @@ export function AddonEmail({ label, downloadUrl }: AddonEmailProps) {
       <Preview>Seu PDF: {label}</Preview>
       <Body style={{ backgroundColor: cream, fontFamily: "Georgia, serif" }}>
         <Container style={{ padding: "32px", color: "#2a1520" }}>
-          <Text
-            style={{
-              letterSpacing: "3px",
-              color: wine,
-              fontSize: "12px",
-              textAlign: "center",
-              textTransform: "uppercase",
-            }}
-          >
-            Nosso Tempo
-          </Text>
+          <Img
+            src={`${appUrl()}/brand/icon-512.png`}
+            alt="Nosso Tempo"
+            width={48}
+            height={48}
+            style={{ display: "block", margin: "0 auto 8px" }}
+          />
           <Heading
             as="h1"
             style={{ textAlign: "center", color: wineDeep, fontSize: "24px" }}

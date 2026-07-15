@@ -11,6 +11,7 @@ import {
   Section,
   Text,
 } from "@react-email/components";
+import { appUrl } from "@/lib/app-url";
 
 type DeliveryEmailProps = {
   name1: string;
@@ -52,17 +53,13 @@ export function DeliveryEmail({
       <Preview>Presente liberado — {names}</Preview>
       <Body style={{ backgroundColor: cream, fontFamily: "Georgia, serif" }}>
         <Container style={{ padding: "32px", color: "#2a1520" }}>
-          <Text
-            style={{
-              letterSpacing: "3px",
-              color: wine,
-              fontSize: "12px",
-              textAlign: "center",
-              textTransform: "uppercase",
-            }}
-          >
-            Nosso Tempo
-          </Text>
+          <Img
+            src={`${appUrl()}/brand/icon-512.png`}
+            alt="Nosso Tempo"
+            width={48}
+            height={48}
+            style={{ display: "block", margin: "0 auto 8px" }}
+          />
           <Heading
             as="h1"
             style={{

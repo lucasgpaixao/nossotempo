@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 
 export function AdminShell({
   children,
@@ -15,9 +16,10 @@ export function AdminShell({
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <Link
             href="/admin"
-            className="font-heading text-lg font-semibold text-wine"
+            className="flex items-center gap-2 font-heading text-lg font-semibold text-wine"
           >
-            Nosso Tempo · Admin
+            <Logo height={28} />
+            <span>Admin</span>
           </Link>
           <nav className="flex items-center gap-4 text-sm text-muted-foreground">
             {isAuthenticated && (

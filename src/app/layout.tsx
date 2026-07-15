@@ -24,6 +24,12 @@ export const metadata: Metadata = {
   title: "Nosso Tempo",
   description:
     "Crie uma página especial do casal com fotos, mensagem, música e QR Code. Presente digital para eternizar o tempo de vocês.",
+  openGraph: {
+    title: "Nosso Tempo",
+    description:
+      "Crie uma página especial do casal com fotos, mensagem, música e QR Code. Presente digital para eternizar o tempo de vocês.",
+    images: ["/brand/logo-full@2x.png"],
+  },
 };
 
 export default function RootLayout({

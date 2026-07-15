@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { LogoIcon } from "@/components/Logo";
 import { formatCoupleNames } from "@/lib/counter";
 import { OpenGate } from "./OpenGate";
 import { PhotoCarousel } from "./PhotoCarousel";
@@ -43,7 +44,8 @@ export function CouplePageView({ data, preview = false }: Props) {
       />
       <article className="relative z-10 mx-auto flex w-full max-w-lg flex-col gap-8 px-5 py-10 sm:py-14">
         <header className="text-center">
-          <p className="text-xs uppercase tracking-[0.25em] text-wine/60">
+          <p className="flex items-center justify-center gap-1.5 text-xs uppercase tracking-[0.25em] text-wine/60">
+            <LogoIcon size={16} />
             Nosso Tempo
           </p>
           <h1 className="font-heading mt-3 text-3xl font-semibold text-wine-deep sm:text-4xl">
