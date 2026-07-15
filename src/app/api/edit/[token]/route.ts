@@ -4,7 +4,7 @@ import { regenerateAssets } from "@/lib/pdf";
 import { sendDeliveryEmail } from "@/lib/resend";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { isPubliclyVisible, type Order } from "@/lib/types";
-import { draftUpdateSchema } from "@/lib/validations";
+import { editUpdateSchema } from "@/lib/validations";
 
 export const runtime = "nodejs";
 
@@ -58,7 +58,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
   }
 
   const body = await req.json();
-  const parsed = draftUpdateSchema.safeParse(body);
+  // buyerEmail fica fora do magic link: quem capturar o token não pode
+  // redirecionar os e-mails de entrega (com PDFs/QR) para outro endereço.
+  const parsed = editUpdateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Dados inválidos.", details: parsed.error.flatten() },
@@ -66,8 +68,6 @@ export async function PATCH(req: Request, ctx: Ctx) {
     );
   }
 
-  // Não permite mudar e-mail/termos via edit magic link de forma solta —
-  // buyerEmail opcional ok se quiser atualizar.
   const row = draftPatchToRow(parsed.data);
   const { data, error } = await supabaseAdmin()
     .from("orders")

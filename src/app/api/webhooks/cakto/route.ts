@@ -79,7 +79,10 @@ export async function POST(req: Request) {
 
   const orderId = resolveOrderId(items);
   if (!orderId) {
-    console.warn("Cakto webhook sem sck — payload completo:", JSON.stringify(body));
+    // Nunca logar `body` inteiro: ele carrega o campo `secret`, que é a
+    // única autenticação do webhook (JSON.stringify descarta `undefined`).
+    const safeBody = { ...body, secret: undefined };
+    console.warn("Cakto webhook sem sck — payload completo:", JSON.stringify(safeBody));
     return NextResponse.json({ received: true, skipped: true });
   }
 

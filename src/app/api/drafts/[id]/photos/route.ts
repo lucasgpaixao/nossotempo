@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { canMutateDraft, isPubliclyVisible, type Order } from "@/lib/types";
+import { isPubliclyVisible, type Order } from "@/lib/types";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { MAX_PHOTOS, processAndUploadPhoto, validatePhotoFile } from "@/lib/photos";
 
@@ -17,18 +17,21 @@ async function getOrder(id: string): Promise<Order | null> {
   return data as Order;
 }
 
+/**
+ * Só permite mutar fotos com um edit_token válido. O wizard sobe as fotos
+ * de uma vez pelo /api/checkout/core; nenhum fluxo legítimo edita fotos na
+ * fase draft/pending_payment — liberar isso sem token deixava qualquer um
+ * que conhecesse o UUID do pedido (vaza via `sck` da Cakto) apagar/trocar
+ * as fotos do casal.
+ */
 function canUploadPhotos(order: Order, editToken: string | null) {
-  if (canMutateDraft(order.status)) return true;
-  if (
+  return Boolean(
     editToken &&
-    order.edit_token === editToken &&
-    order.edit_expires_at &&
-    new Date(order.edit_expires_at).getTime() > Date.now() &&
-    isPubliclyVisible(order.status)
-  ) {
-    return true;
-  }
-  return false;
+      order.edit_token === editToken &&
+      order.edit_expires_at &&
+      new Date(order.edit_expires_at).getTime() > Date.now() &&
+      isPubliclyVisible(order.status),
+  );
 }
 
 /** POST /api/drafts/[id]/photos — multipart upload */

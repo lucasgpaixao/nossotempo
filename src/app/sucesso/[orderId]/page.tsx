@@ -58,10 +58,10 @@ export default async function SucessoPage({ params, searchParams }: Props) {
     qrUrl = data?.signedUrl ?? null;
   }
 
+  // O UUID do pedido circula por terceiros (query `sck` do checkout Cakto),
+  // então esta página não pode expor nada sensível: o link de edição
+  // (edit_token) e o e-mail do comprador vão somente no e-mail de entrega.
   const pageUrl = `${appUrl()}/p/${o.public_id}`;
-  const editUrl = o.edit_token
-    ? `${appUrl()}/editar/${o.edit_token}`
-    : null;
 
   return (
     <main className="relative mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col px-6 py-12">
@@ -113,18 +113,12 @@ export default async function SucessoPage({ params, searchParams }: Props) {
               Abrir página
             </a>
           </Button>
-          {editUrl ? (
-            <Button asChild variant="outline">
-              <a href={editUrl}>Editar por 7 dias</a>
-            </Button>
-          ) : null}
         </div>
 
-        {o.buyer_email ? (
-          <p className="text-xs text-muted-foreground">
-            Enviamos (ou enviaremos) os detalhes para {o.buyer_email}.
-          </p>
-        ) : null}
+        <p className="text-xs text-muted-foreground">
+          Enviamos os detalhes — incluindo o link para editar por 7 dias —
+          para o e-mail usado na compra.
+        </p>
       </div>
 
       <p className="mt-8 text-center text-sm text-muted-foreground">
