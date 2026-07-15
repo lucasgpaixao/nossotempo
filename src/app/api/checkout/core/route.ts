@@ -3,6 +3,7 @@ import { buildCheckoutUrl } from "@/lib/cakto";
 import { startedAtFromParts } from "@/lib/drafts";
 import { createPublicId } from "@/lib/ids";
 import { MAX_PHOTOS, processAndUploadPhoto, validatePhotoFile } from "@/lib/photos";
+import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { checkoutSubmitSchema } from "@/lib/validations";
 
@@ -21,6 +22,11 @@ function formValue(form: FormData, key: string): string | undefined {
  */
 export async function POST(req: Request) {
   try {
+    // Cada pedido processa até 6 imagens (sharp) e grava no Storage — sem
+    // teto, um IP pode inflar custo/DoS já que a limpeza só roda em 7 dias.
+    const limit = rateLimit(`checkout:${clientIp(req)}`, 10, 60 * 60_000);
+    if (!limit.ok) return tooManyRequests(limit.retryAfterSec);
+
     if (!process.env.CAKTO_CHECKOUT_URL) {
       return NextResponse.json(
         {

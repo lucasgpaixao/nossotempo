@@ -13,7 +13,14 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function GET(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   const path = new URL(req.url).searchParams.get("path");
-  if (!path || !path.startsWith(`${id}/`)) {
+  // Confina o path ao diretório do próprio pedido e bloqueia travessia
+  // (`..`, `//`) antes de qualquer download do Storage.
+  if (
+    !path ||
+    !path.startsWith(`${id}/`) ||
+    path.includes("..") ||
+    path.includes("//")
+  ) {
     return NextResponse.json({ error: "path inválido." }, { status: 400 });
   }
 

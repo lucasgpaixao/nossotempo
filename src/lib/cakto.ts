@@ -1,4 +1,5 @@
 import { appUrl } from "@/lib/app-url";
+import { safeEqual } from "@/lib/timing-safe";
 
 export { appUrl };
 
@@ -42,7 +43,7 @@ export function verifyCaktoWebhookSecret(body: { secret?: unknown }) {
     }
     return;
   }
-  if (body.secret !== expected) {
+  if (!safeEqual(typeof body.secret === "string" ? body.secret : "", expected)) {
     throw new InvalidCaktoWebhookError("secret mismatch");
   }
 }

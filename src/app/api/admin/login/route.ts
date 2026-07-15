@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { createBrowserSupabase } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
 /** POST /api/admin/login { email, password } */
 export async function POST(req: Request) {
   try {
+    const limit = rateLimit(`admin-login:${clientIp(req)}`, 5, 5 * 60_000);
+    if (!limit.ok) return tooManyRequests(limit.retryAfterSec);
+
     const body = (await req.json()) as { email?: string; password?: string };
     if (!body.email || !body.password) {
       return NextResponse.json({ error: "E-mail e senha obrigatórios." }, { status: 400 });

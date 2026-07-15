@@ -1,27 +1,26 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { safeEqual } from "@/lib/timing-safe";
 
 export const runtime = "nodejs";
 
 /**
  * GET /api/cron/cleanup-drafts
- * Protegido por CRON_SECRET (Authorization: Bearer … ou ?secret=).
- * Apaga pedidos abandonados antes de pagar (nunca chegaram a `core_paid`)
- * com mais de 7 dias + arquivos no Storage. O wizard não cria mais pedidos
- * em `draft` — o estado "abandonado" hoje é `pending_payment` (checkout
- * criado mas nunca aprovado). `draft` continua na varredura por segurança
- * (linhas antigas que sobraram de antes dessa mudança).
+ * Protegido por CRON_SECRET no header Authorization: Bearer <secret>.
+ * (Não aceita mais `?secret=` — query strings vazam em logs de acesso e
+ * histórico.) Apaga pedidos abandonados antes de pagar (nunca chegaram a
+ * `core_paid`) com mais de 7 dias + arquivos no Storage. O wizard não cria
+ * mais pedidos em `draft` — o estado "abandonado" hoje é `pending_payment`
+ * (checkout criado mas nunca aprovado). `draft` continua na varredura por
+ * segurança (linhas antigas que sobraram de antes dessa mudança).
  */
 export async function GET(req: Request) {
-  const url = new URL(req.url);
   const auth = req.headers.get("authorization");
   // Vercel Cron envia Authorization: Bearer <CRON_SECRET>
-  const secret =
-    url.searchParams.get("secret") ??
-    (auth?.startsWith("Bearer ") ? auth.slice(7) : null);
+  const secret = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
 
   const expected = process.env.CRON_SECRET;
-  if (!expected || secret !== expected) {
+  if (!expected || !safeEqual(secret, expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

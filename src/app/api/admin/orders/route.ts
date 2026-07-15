@@ -71,9 +71,15 @@ export async function GET(req: Request) {
   if (from) query = query.gte("created_at", from);
   if (to) query = query.lte("created_at", to);
   if (q) {
-    query = query.or(
-      `buyer_email.ilike.%${q}%,name1.ilike.%${q}%,name2.ilike.%${q}%`,
-    );
+    // Remove os metacaracteres da gramática de filtro do PostgREST (vírgula,
+    // parênteses, ponto, asterisco, aspas, barra) para que o termo de busca
+    // não consiga remodelar a expressão `.or(...)`.
+    const safeQ = q.replace(/[,()."*\\%]/g, " ").trim();
+    if (safeQ) {
+      query = query.or(
+        `buyer_email.ilike.%${safeQ}%,name1.ilike.%${safeQ}%,name2.ilike.%${safeQ}%`,
+      );
+    }
   }
 
   const start = (page - 1) * pageSize;
