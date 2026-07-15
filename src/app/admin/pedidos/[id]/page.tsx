@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,15 @@ export default function AdminPedidoPage() {
   const [message, setMessage] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<string | null>(null);
+
+  const ACTION_LABELS: Record<string, string> = {
+    fulfill: "Pedido marcado como pago.",
+    resend_email: "E-mail reenviado com sucesso.",
+    regenerate: "Assets regenerados com sucesso.",
+    update_order: "Conteúdo salvo.",
+    mark_shipped: "Marcado como enviado.",
+  };
 
   async function load() {
     const res = await fetch(`/api/admin/orders?id=${id}`);
@@ -59,21 +69,32 @@ export default function AdminPedidoPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  useEffect(() => {
+    if (!msg) return;
+    const t = setTimeout(() => setMsg(null), 4000);
+    return () => clearTimeout(t);
+  }, [msg]);
+
   async function act(action: string, extra?: Record<string, unknown>) {
     setMsg(null);
     setError(null);
-    const res = await fetch("/api/admin/orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, orderId: id, ...extra }),
-    });
-    const j = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setError(j.error ?? "Falha");
-      return;
+    setPending(action);
+    try {
+      const res = await fetch("/api/admin/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, orderId: id, ...extra }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(j.error ?? "Falha");
+        return;
+      }
+      setMsg(ACTION_LABELS[action] ?? "Feito.");
+      await load();
+    } finally {
+      setPending(null);
     }
-    setMsg("OK");
-    await load();
   }
 
   if (!order && !error) {
@@ -127,17 +148,42 @@ export default function AdminPedidoPage() {
         <Button
           size="sm"
           className="bg-wine text-cream"
+          disabled={pending !== null}
           onClick={() => void act("fulfill")}
         >
+          {pending === "fulfill" ? <Loader2 className="size-4 animate-spin" /> : null}
           Marcar pago (core)
         </Button>
-        <Button size="sm" variant="outline" onClick={() => void act("resend_email")}>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={pending !== null}
+          onClick={() => void act("resend_email")}
+        >
+          {pending === "resend_email" ? <Loader2 className="size-4 animate-spin" /> : null}
           Reenviar e-mail
         </Button>
-        <Button size="sm" variant="outline" onClick={() => void act("regenerate")}>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={pending !== null}
+          onClick={() => void act("regenerate")}
+        >
+          {pending === "regenerate" ? <Loader2 className="size-4 animate-spin" /> : null}
           Regenerar assets
         </Button>
       </div>
+
+      {msg ? (
+        <p className="flex items-center gap-2 rounded-md border border-emerald-600/30 bg-emerald-600/10 px-3 py-2 text-sm font-medium text-emerald-700">
+          <span aria-hidden>✓</span> {msg}
+        </p>
+      ) : null}
+      {error ? (
+        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
 
       <div className="space-y-3 rounded-lg border border-wine/15 p-4">
         <div className="grid grid-cols-2 gap-3">
@@ -155,12 +201,14 @@ export default function AdminPedidoPage() {
           <Textarea value={message} onChange={(e) => setMessage(e.target.value)} />
         </div>
         <Button
+          disabled={pending !== null}
           onClick={() =>
             void act("update_order", {
               patch: { name1, name2, message },
             })
           }
         >
+          {pending === "update_order" ? <Loader2 className="size-4 animate-spin" /> : null}
           Salvar conteúdo
         </Button>
       </div>
@@ -218,16 +266,18 @@ export default function AdminPedidoPage() {
               <pre className="overflow-x-auto rounded bg-cream-deep/40 p-3 text-xs">
                 {JSON.stringify(order.physical_shipping ?? {}, null, 2)}
               </pre>
-              <Button size="sm" onClick={() => void act("mark_shipped")}>
+              <Button
+                size="sm"
+                disabled={pending !== null}
+                onClick={() => void act("mark_shipped")}
+              >
+                {pending === "mark_shipped" ? <Loader2 className="size-4 animate-spin" /> : null}
                 Marcar como enviado
               </Button>
             </>
           )}
         </div>
       ) : null}
-
-      {msg ? <p className="text-sm text-wine">{msg}</p> : null}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
     </div>
   );
 }
