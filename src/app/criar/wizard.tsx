@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { track } from "@vercel/analytics";
 import { ImagePlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ type YtItem = {
 };
 
 export default function CriarWizard({ pricing }: { pricing: Pricing }) {
+  const router = useRouter();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -592,8 +594,11 @@ export default function CriarWizard({ pricing }: { pricing: Pricing }) {
           <Button
             type="button"
             variant="outline"
-            disabled={step === 0}
             onClick={() => {
+              if (step === 0) {
+                router.push("/");
+                return;
+              }
               setError(null);
               setStep((s) => Math.max(0, s - 1));
             }}
