@@ -102,7 +102,11 @@ export async function GET(req: Request) {
 const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("fulfill"), orderId: z.string().uuid() }),
   z.object({ action: z.literal("resend_email"), orderId: z.string().uuid() }),
-  z.object({ action: z.literal("regenerate"), orderId: z.string().uuid() }),
+  z.object({
+    action: z.literal("regenerate"),
+    orderId: z.string().uuid(),
+    force: z.boolean().optional(),
+  }),
   z.object({ action: z.literal("mark_shipped"), orderId: z.string().uuid() }),
   z.object({ action: z.literal("delete_order"), orderId: z.string().uuid() }),
   z.object({
@@ -186,7 +190,7 @@ export async function POST(req: Request) {
   }
 
   if (body.action === "regenerate") {
-    const updated = await regenerateAssets(o.id);
+    const updated = await regenerateAssets(o.id, { force: body.force });
     return NextResponse.json({ order: updated });
   }
 

@@ -39,7 +39,6 @@ export async function fulfillCore(
     .from("orders")
     .update({
       status: "core_paid",
-      mp_payment_core_id: String(paymentId),
       edit_token: editToken,
       edit_expires_at: editExpires.toISOString(),
       updated_at: new Date().toISOString(),
@@ -54,7 +53,30 @@ export async function fulfillCore(
   }
 
   let fulfilled = data as Order;
+
+  // PDFs/QR primeiro; `mp_payment_core_id` (a chave de idempotência checada
+  // no topo desta função) só é gravado DEPOIS que os assets existem. Se
+  // regenerateAssets falhar, a exceção sobe, o webhook responde erro e a
+  // Cakto tenta de novo — em vez de marcar "já processado" e travar o
+  // pedido pra sempre sem QR/e-mail (era exatamente o caso que exigia rodar
+  // scripts/fix-fulfill-assets.ts manualmente pra destravar).
   fulfilled = await regenerateAssets(fulfilled.id);
+
+  const { data: withPaymentId, error: paymentIdErr } = await supabaseAdmin()
+    .from("orders")
+    .update({
+      mp_payment_core_id: String(paymentId),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", fulfilled.id)
+    .select("*")
+    .single();
+
+  if (paymentIdErr || !withPaymentId) {
+    console.error("fulfillCore payment id save failed", paymentIdErr);
+    throw new Error("Falha ao concluir liberação do pedido");
+  }
+  fulfilled = withPaymentId as Order;
 
   try {
     await track("core_paid");
@@ -101,20 +123,20 @@ export async function markUpsellPaid(
 ) {
   if (order.mp_payment_upsell_id === String(paymentId)) return order;
 
-  const { data, error } = await supabaseAdmin()
+  const { error: statusErr } = await supabaseAdmin()
     .from("orders")
     .update({
       status: "upsell_paid",
-      mp_payment_upsell_id: String(paymentId),
       physical_shipping: shipping ?? null,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", order.id)
-    .select("*")
-    .single();
-  if (error || !data) throw new Error("Falha ao marcar upsell físico");
+    .eq("id", order.id);
+  if (statusErr) throw new Error("Falha ao marcar upsell físico");
 
-  const updated = await regenerateAssets((data as Order).id);
+  // Mesma lógica do fulfillCore: idempotência (`mp_payment_upsell_id`) só é
+  // gravada depois que os PDFs existem, senão uma falha no meio do caminho
+  // trava o pedido pra sempre sem nunca reprocessar.
+  const updated = await regenerateAssets(order.id);
   try {
     await sendPhysicalOrderEmail(updated);
   } catch (e) {
@@ -125,26 +147,39 @@ export async function markUpsellPaid(
   } catch (e) {
     console.error("admin physical notify", e);
   }
-  return updated;
+
+  const { data, error } = await supabaseAdmin()
+    .from("orders")
+    .update({
+      mp_payment_upsell_id: String(paymentId),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", updated.id)
+    .select("*")
+    .single();
+  if (error || !data) throw new Error("Falha ao concluir upsell físico");
+  return data as Order;
 }
 
 /** Downsell = polaroids + carta em PDF, entregues por link de download. */
 export async function markDownsellPaid(order: Order, paymentId: string) {
   if (order.mp_payment_downsell_id === String(paymentId)) return order;
 
-  const { data, error } = await supabaseAdmin()
+  const { error: statusErr } = await supabaseAdmin()
     .from("orders")
-    .update({
-      status: "downsell_paid",
-      mp_payment_downsell_id: String(paymentId),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", order.id)
-    .select("*")
-    .single();
-  if (error || !data) throw new Error("Falha ao marcar downsell digital");
+    .update({ status: "downsell_paid", updated_at: new Date().toISOString() })
+    .eq("id", order.id);
+  if (statusErr) throw new Error("Falha ao marcar downsell digital");
 
-  const updated = await regenerateAssets((data as Order).id);
+  // Mesma lógica do fulfillCore: idempotência (`mp_payment_downsell_id`) só
+  // é gravada depois que os PDFs e os e-mails foram tentados. Antes disso, o
+  // registro era gravado ANTES de gerar os PDFs — se `regenerateAssets`
+  // falhasse (foto com erro, timeout do render, etc.), a exceção subia sem
+  // enviar nada, mas o pedido já ficava marcado como "processado". Qualquer
+  // retentativa da Cakto (ou reprocesso manual) batia nesse mesmo guard de
+  // idempotência ali em cima e retornava na hora, sem nunca gerar o PDF nem
+  // mandar o e-mail — esse era o motivo do PDF não chegar no downsell.
+  const updated = await regenerateAssets(order.id);
   try {
     await sendAddonEmail(updated, "polaroid");
   } catch (e) {
@@ -155,5 +190,16 @@ export async function markDownsellPaid(order: Order, paymentId: string) {
   } catch (e) {
     console.error("downsell letter email", e);
   }
-  return updated;
+
+  const { data, error } = await supabaseAdmin()
+    .from("orders")
+    .update({
+      mp_payment_downsell_id: String(paymentId),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", updated.id)
+    .select("*")
+    .single();
+  if (error || !data) throw new Error("Falha ao concluir downsell digital");
+  return data as Order;
 }
