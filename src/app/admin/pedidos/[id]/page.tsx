@@ -50,18 +50,19 @@ export default function AdminPedidoPage() {
     const res = await fetch(`/api/admin/orders?id=${id}`);
     if (res.status === 401) {
       router.replace("/admin/login");
-      return;
+      return null;
     }
     const j = await res.json().catch(() => ({}));
     if (!res.ok) {
       setError(j.error ?? "Erro");
-      return;
+      return null;
     }
     setOrder(j.order);
     setAssets(j.assets ?? {});
     setName1(j.order.name1 ?? "");
     setName2(j.order.name2 ?? "");
     setMessage(j.order.message ?? "");
+    return j as { order: Order; assets: Record<string, string | null> };
   }
 
   useEffect(() => {
@@ -92,6 +93,39 @@ export default function AdminPedidoPage() {
       }
       setMsg(ACTION_LABELS[action] ?? "Feito.");
       await load();
+    } finally {
+      setPending(null);
+    }
+  }
+
+  /**
+   * Gera (se preciso) e abre o PDF de polaroids pra QUALQUER pedido, mesmo
+   * quem comprou só o core sem upsell/downsell — normalmente o PDF só é
+   * gerado pra quem pagou o extra.
+   */
+  async function downloadPolaroidPdf() {
+    setMsg(null);
+    setError(null);
+    setPending("polaroid_pdf");
+    try {
+      const res = await fetch("/api/admin/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "regenerate", orderId: id, force: true }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(j.error ?? "Falha ao gerar PDF.");
+        return;
+      }
+      const fresh = await load();
+      const url = fresh?.assets?.polaroid;
+      if (url) {
+        window.open(url, "_blank", "noopener,noreferrer");
+        setMsg("PDF de polaroids pronto — abrindo em nova aba.");
+      } else {
+        setError("PDF gerado, mas o link não veio. Tente de novo.");
+      }
     } finally {
       setPending(null);
     }
@@ -171,6 +205,15 @@ export default function AdminPedidoPage() {
         >
           {pending === "regenerate" ? <Loader2 className="size-4 animate-spin" /> : null}
           Regenerar assets
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={pending !== null}
+          onClick={() => void downloadPolaroidPdf()}
+        >
+          {pending === "polaroid_pdf" ? <Loader2 className="size-4 animate-spin" /> : null}
+          Baixar PDF polaroids
         </Button>
       </div>
 

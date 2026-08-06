@@ -54,7 +54,10 @@ async function uploadAsset(path: string, body: Buffer, contentType: string) {
 }
 
 /** Gera/atualiza QR PNG e, se aplicável, PDFs de polaroid e carta. */
-export async function regenerateAssets(orderId: string): Promise<Order> {
+export async function regenerateAssets(
+  orderId: string,
+  opts?: { force?: boolean },
+): Promise<Order> {
   const { data: order, error } = await supabaseAdmin()
     .from("orders")
     .select("*")
@@ -85,13 +88,17 @@ export async function regenerateAssets(orderId: string): Promise<Order> {
   const boughtExtra =
     Boolean(o.mp_payment_upsell_id) || Boolean(o.mp_payment_downsell_id);
 
+  // `force` ignora as regras acima — usado pelo botão do admin pra baixar o
+  // PDF de polaroids de qualquer pedido, mesmo quem comprou só o core.
   const needsPolaroid =
+    Boolean(opts?.force) ||
     Boolean(o.polaroid_pdf_path) ||
     o.status === "upsell_paid" ||
     o.status === "downsell_paid" ||
     boughtExtra;
 
   const needsLetter =
+    Boolean(opts?.force) ||
     Boolean(o.letter_pdf_path) ||
     o.status === "upsell_paid" ||
     o.status === "downsell_paid" ||
