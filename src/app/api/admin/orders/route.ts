@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { fulfillCoreManual } from "@/lib/fulfillment";
 import { regenerateAssets, signedAssetUrl } from "@/lib/pdf";
-import { sendDeliveryEmail } from "@/lib/resend";
+import { sendAddonEmail, sendDeliveryEmail } from "@/lib/resend";
 import { draftPatchToRow } from "@/lib/drafts";
 import { getSiteSettings } from "@/lib/pricing";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -102,6 +102,8 @@ export async function GET(req: Request) {
 const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("fulfill"), orderId: z.string().uuid() }),
   z.object({ action: z.literal("resend_email"), orderId: z.string().uuid() }),
+  z.object({ action: z.literal("resend_polaroid_email"), orderId: z.string().uuid() }),
+  z.object({ action: z.literal("resend_letter_email"), orderId: z.string().uuid() }),
   z.object({
     action: z.literal("regenerate"),
     orderId: z.string().uuid(),
@@ -186,6 +188,42 @@ export async function POST(req: Request) {
 
   if (body.action === "resend_email") {
     await sendDeliveryEmail(o);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (
+    body.action === "resend_polaroid_email" ||
+    body.action === "resend_letter_email"
+  ) {
+    const kind = body.action === "resend_polaroid_email" ? "polaroid" : "letter";
+    let target = o;
+    const hasPath =
+      kind === "polaroid" ? Boolean(target.polaroid_pdf_path) : Boolean(target.letter_pdf_path);
+    // Reenvio manual — se o PDF nunca tinha sido gerado (pedido core-only,
+    // por exemplo), gera na hora em vez de simplesmente falhar.
+    if (!hasPath) {
+      target = await regenerateAssets(target.id, { force: true });
+    }
+    const stillMissing =
+      kind === "polaroid" ? !target.polaroid_pdf_path : !target.letter_pdf_path;
+    if (stillMissing) {
+      return NextResponse.json(
+        {
+          error:
+            kind === "letter"
+              ? "Pedido sem mensagem/carta cadastrada."
+              : "Falha ao gerar o PDF de polaroids.",
+        },
+        { status: 400 },
+      );
+    }
+    const result = await sendAddonEmail(target, kind);
+    if (result.skipped) {
+      return NextResponse.json(
+        { error: "E-mail não enviado — Resend não configurado ou pedido sem e-mail do comprador." },
+        { status: 400 },
+      );
+    }
     return NextResponse.json({ ok: true });
   }
 

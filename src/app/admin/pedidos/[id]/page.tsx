@@ -41,6 +41,8 @@ export default function AdminPedidoPage() {
   const ACTION_LABELS: Record<string, string> = {
     fulfill: "Pedido marcado como pago.",
     resend_email: "E-mail reenviado com sucesso.",
+    resend_polaroid_email: "PDF de polaroids reenviado por e-mail.",
+    resend_letter_email: "Carta reenviada por e-mail.",
     regenerate: "Assets regenerados com sucesso.",
     update_order: "Conteúdo salvo.",
     mark_shipped: "Marcado como enviado.",
@@ -196,6 +198,28 @@ export default function AdminPedidoPage() {
         >
           {pending === "resend_email" ? <Loader2 className="size-4 animate-spin" /> : null}
           Reenviar e-mail
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={pending !== null}
+          onClick={() => void act("resend_polaroid_email")}
+        >
+          {pending === "resend_polaroid_email" ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : null}
+          Reenviar PDF polaroids
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={pending !== null}
+          onClick={() => void act("resend_letter_email")}
+        >
+          {pending === "resend_letter_email" ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : null}
+          Reenviar carta
         </Button>
         <Button
           size="sm"
