@@ -8,12 +8,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { formatBRL } from "@/lib/format";
 
 type Order = {
   id: string;
   public_id: string;
   status: string;
   buyer_email: string | null;
+  buyer_name: string | null;
+  buyer_phone: string | null;
+  payment_method: string | null;
+  core_amount_cents: number | null;
+  upsell_amount_cents: number | null;
+  downsell_amount_cents: number | null;
   name1: string | null;
   name2: string | null;
   message: string | null;
@@ -21,7 +28,9 @@ type Order = {
   polaroid_pdf_path: string | null;
   letter_pdf_path: string | null;
   edit_token: string | null;
+  mp_payment_core_id: string | null;
   mp_payment_upsell_id: string | null;
+  mp_payment_downsell_id: string | null;
   physical_shipping: unknown;
   physical_shipped_at: string | null;
 };
@@ -180,6 +189,74 @@ export default function AdminPedidoPage() {
         ) : null}
       </p>
 
+      <div className="space-y-2 rounded-lg border border-wine/15 p-4 text-sm">
+        <p className="font-medium text-wine-deep">Dados do cliente</p>
+        <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+          <p>
+            <span className="text-muted-foreground">Nome:</span>{" "}
+            {order.buyer_name ?? "—"}
+          </p>
+          <p>
+            <span className="text-muted-foreground">E-mail:</span>{" "}
+            {order.buyer_email ?? "—"}
+          </p>
+          <p>
+            <span className="text-muted-foreground">Telefone:</span>{" "}
+            {order.buyer_phone ?? "—"}
+          </p>
+          <p>
+            <span className="text-muted-foreground">Forma de pagamento:</span>{" "}
+            {order.payment_method ?? "—"}
+          </p>
+        </div>
+
+        <div className="mt-2">
+          <p className="text-muted-foreground">Produtos comprados:</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5">
+            {order.mp_payment_core_id ? (
+              <li>
+                Core
+                {order.core_amount_cents != null
+                  ? ` — ${formatBRL(order.core_amount_cents)}`
+                  : ""}
+              </li>
+            ) : null}
+            {order.mp_payment_upsell_id ? (
+              <li>
+                Upsell físico (polaroids + carta impressas)
+                {order.upsell_amount_cents != null
+                  ? ` — ${formatBRL(order.upsell_amount_cents)}`
+                  : ""}
+              </li>
+            ) : null}
+            {order.mp_payment_downsell_id ? (
+              <li>
+                Downsell digital (polaroids + carta em PDF)
+                {order.downsell_amount_cents != null
+                  ? ` — ${formatBRL(order.downsell_amount_cents)}`
+                  : ""}
+              </li>
+            ) : null}
+            {!order.mp_payment_core_id &&
+            !order.mp_payment_upsell_id &&
+            !order.mp_payment_downsell_id ? (
+              <li className="list-none pl-0 text-muted-foreground">
+                Nenhum pagamento confirmado ainda.
+              </li>
+            ) : null}
+          </ul>
+        </div>
+
+        {order.physical_shipping ? (
+          <div className="mt-2">
+            <p className="text-muted-foreground">Endereço (upsell físico):</p>
+            <pre className="mt-1 overflow-x-auto rounded bg-cream-deep/40 p-3 text-xs">
+              {JSON.stringify(order.physical_shipping, null, 2)}
+            </pre>
+          </div>
+        ) : null}
+      </div>
+
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
@@ -328,11 +405,8 @@ export default function AdminPedidoPage() {
             <>
               <p className="text-sm text-muted-foreground">
                 Baixe os PDFs acima, imprima e envie pelo correio. Endereço
-                recebido da Cakto:
+                acima, em &quot;Dados do cliente&quot;.
               </p>
-              <pre className="overflow-x-auto rounded bg-cream-deep/40 p-3 text-xs">
-                {JSON.stringify(order.physical_shipping ?? {}, null, 2)}
-              </pre>
               <Button
                 size="sm"
                 disabled={pending !== null}
