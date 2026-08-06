@@ -21,6 +21,11 @@ type CaktoItem = {
   // preenchido — guardamos o que vier, bruto, pro admin ler manualmente.
   address?: unknown;
   shipping?: unknown;
+  // Dados do comprador e da cobrança — ver
+  // https://cakto-dece4a15.mintlify.app/webhooks/pagamento-unico
+  customer?: { name?: string; email?: string; phone?: string; birthDate?: string };
+  amount?: number; // valor total cobrado NESTA oferta, em reais (não centavos)
+  paymentMethod?: string; // "pix" | "credit_card" | ...
 };
 
 type CaktoBody = {
@@ -98,6 +103,39 @@ export async function POST(req: Request) {
   }
 
   let o = order as Order;
+
+  // Dados do comprador (nome/telefone) e valor efetivamente cobrado por
+  // oferta — informativo pro admin, nunca deve bloquear o fulfillment (PDF
+  // + e-mail) se algo aqui falhar.
+  try {
+    const patch: Record<string, unknown> = {};
+    for (const item of items) {
+      if (item.customer?.name) patch.buyer_name = item.customer.name;
+      if (item.customer?.phone) patch.buyer_phone = item.customer.phone;
+      if (item.paymentMethod) patch.payment_method = item.paymentMethod;
+      if (typeof item.amount === "number") {
+        const cents = Math.round(item.amount * 100);
+        const kind = resolveKind(item);
+        if (kind === "core") patch.core_amount_cents = cents;
+        else if (kind === "upsell") patch.upsell_amount_cents = cents;
+        else if (kind === "downsell") patch.downsell_amount_cents = cents;
+      }
+    }
+    if (Object.keys(patch).length > 0) {
+      patch.updated_at = new Date().toISOString();
+      const { error: customerErr } = await supabaseAdmin()
+        .from("orders")
+        .update(patch)
+        .eq("id", o.id);
+      if (customerErr) {
+        console.error("Cakto webhook: falha ao salvar dados do cliente", customerErr);
+      } else {
+        o = { ...o, ...patch } as Order;
+      }
+    }
+  } catch (e) {
+    console.error("Cakto webhook: erro ao processar dados do cliente", e);
+  }
 
   try {
     for (const item of items) {

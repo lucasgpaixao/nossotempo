@@ -64,7 +64,11 @@ export type Database = {
       orders: {
         Row: {
           buyer_email: string | null
+          buyer_name: string | null
+          buyer_phone: string | null
+          core_amount_cents: number | null
           created_at: string
+          downsell_amount_cents: number | null
           edit_expires_at: string | null
           edit_token: string | null
           id: string
@@ -78,12 +82,14 @@ export type Database = {
           mp_preference_upsell_id: string | null
           name1: string | null
           name2: string | null
+          payment_method: string | null
           polaroid_pdf_path: string | null
           public_id: string
           qr_storage_path: string | null
           started_at: string | null
           status: Database["public"]["Enums"]["order_status"]
           terms_accepted_at: string | null
+          upsell_amount_cents: number | null
           updated_at: string
           youtube_thumbnail: string | null
           youtube_title: string | null
@@ -91,7 +97,11 @@ export type Database = {
         }
         Insert: {
           buyer_email?: string | null
+          buyer_name?: string | null
+          buyer_phone?: string | null
+          core_amount_cents?: number | null
           created_at?: string
+          downsell_amount_cents?: number | null
           edit_expires_at?: string | null
           edit_token?: string | null
           id?: string
@@ -105,12 +115,14 @@ export type Database = {
           mp_preference_upsell_id?: string | null
           name1?: string | null
           name2?: string | null
+          payment_method?: string | null
           polaroid_pdf_path?: string | null
           public_id: string
           qr_storage_path?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           terms_accepted_at?: string | null
+          upsell_amount_cents?: number | null
           updated_at?: string
           youtube_thumbnail?: string | null
           youtube_title?: string | null
@@ -118,7 +130,11 @@ export type Database = {
         }
         Update: {
           buyer_email?: string | null
+          buyer_name?: string | null
+          buyer_phone?: string | null
+          core_amount_cents?: number | null
           created_at?: string
+          downsell_amount_cents?: number | null
           edit_expires_at?: string | null
           edit_token?: string | null
           id?: string
@@ -132,12 +148,14 @@ export type Database = {
           mp_preference_upsell_id?: string | null
           name1?: string | null
           name2?: string | null
+          payment_method?: string | null
           polaroid_pdf_path?: string | null
           public_id?: string
           qr_storage_path?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           terms_accepted_at?: string | null
+          upsell_amount_cents?: number | null
           updated_at?: string
           youtube_thumbnail?: string | null
           youtube_title?: string | null

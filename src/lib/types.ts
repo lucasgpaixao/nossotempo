@@ -14,6 +14,12 @@ export type Order = {
   public_id: string;
   status: OrderStatus;
   buyer_email: string | null;
+  buyer_name: string | null;
+  buyer_phone: string | null;
+  payment_method: string | null;
+  core_amount_cents: number | null;
+  upsell_amount_cents: number | null;
+  downsell_amount_cents: number | null;
   name1: string | null;
   name2: string | null;
   started_at: string | null;
